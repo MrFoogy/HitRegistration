@@ -9,7 +9,8 @@
 #include "Runtime/Engine/Public/EngineGlobals.h"
 #include "RepMovable.h"
 #include "FPSTemplateGameMode.h"
-#include "RepMovementTimeline.h"
+#include "RepTimeline.h"
+#include "RepViewRotationSnapshot.h"
 #include "RepSnapshot.h"
 #include "RepAnimationSnapshot.h"
 #include "DebugUtil.h"
@@ -53,6 +54,8 @@ protected:
 	TArray<physx::PxShape*> AllShapes;
 	TMap<physx::PxShape*, int> ShapeIDs;
 
+	RepTimeline<RepViewRotationSnapshot> RepViewRotationTimeline;
+
 public:
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
@@ -87,6 +90,9 @@ public:
 
 	UFUNCTION(Exec, Category = ExecFunctions)
 	void StartDebugMovement();
+
+	UFUNCTION(BlueprintCallable)
+	FRotator GetViewRotation();
 
 protected:
 	/** Fires a projectile. */
@@ -136,6 +142,8 @@ protected:
 	virtual void ServerSendShapeTransforms(AFPSTemplateCharacter* Target, ServerReplicationMessageType Type);
 	virtual void DisplayShapeTransform(int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type);
 
+	virtual float GetPing();
+
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
@@ -156,6 +164,12 @@ public:
 
 	UFUNCTION(Client, Reliable)
 	void ClientDisplayShapeTransform(AFPSTemplateCharacter* Target, int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type);
+
+	UPROPERTY(Transient, Replicated, ReplicatedUsing=OnRep_RepViewRotation)
+	FRotator RepViewRotation;
+
+	UFUNCTION()
+	virtual void OnRep_RepViewRotation();
 
 public:
 	virtual void OnRep_ReplicatedMovement() override;

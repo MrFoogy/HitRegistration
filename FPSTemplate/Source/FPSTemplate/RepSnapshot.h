@@ -18,4 +18,6 @@ public:
 	FVector Position;
 	FQuat Rotation;
 	FVector Velocity;
+
+	static RepSnapshot Interpolate(const RepSnapshot& Start, const RepSnapshot& End, float Alpha);
 };

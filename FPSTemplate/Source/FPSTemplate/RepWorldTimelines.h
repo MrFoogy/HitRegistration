@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "RepMovable.h"
+#include "RepTimeline.h"
+#include "RepSnapshot.h"
+#include "RepAnimationSnapshot.h"
 #include "RepMovementTimeline.h"
 #include "RepAnimationTimeline.h"
 
@@ -19,13 +22,13 @@ public:
 	virtual void ClearWorldTimelines();
 	virtual void InitializeTimeline(IRepMovable* RepMovable);
 	virtual bool HasTimeline(IRepMovable* RepMovable) const;
-	virtual RepMovementTimeline& GetMovementTimeline(IRepMovable* RepMovable);
-	virtual RepAnimationTimeline& GetAnimationTimeline(IRepMovable* RepMovable);
+	virtual RepTimeline<RepSnapshot>& GetMovementTimeline(IRepMovable* RepMovable);
+	virtual RepTimeline<RepAnimationSnapshot>& GetAnimationTimeline(IRepMovable* RepMovable);
 	virtual void PreRollbackWorld(IRepMovable* ExcludedMovable);
 	virtual void RollbackWorld(IRepMovable* ExcludedMovable, float CurrentTime, float InterpolationOffset, float RTT);
 	virtual void ResetWorld(IRepMovable* ExcludedMovable);
 protected:
 	TArray<IRepMovable*> RepObjects;
-	TMap<IRepMovable*, RepMovementTimeline> MovementTimelines;
-	TMap<IRepMovable*, RepAnimationTimeline> AnimationTimelines;
+	TMap<IRepMovable*, RepTimeline<RepSnapshot>> MovementTimelines;
+	TMap<IRepMovable*, RepTimeline<RepAnimationSnapshot>> AnimationTimelines;
 };

@@ -5,14 +5,14 @@
 #include "Runtime/Engine/Public/EngineGlobals.h"
 
 UCustomCharacterMovementComponent::UCustomCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer), ReplicationTimeline()
+	: Super(ObjectInitializer), RepMovementTimeline()
 {
 }
 
 void UCustomCharacterMovementComponent::MoveSmooth(const FVector& InVelocity, const float DeltaSeconds, FStepDownResult* OutStepDownResult)
 {
 	//Super::MoveSmooth(InVelocity, DeltaSeconds, OutStepDownResult);
-	RepSnapshot MovementSnapshot = ReplicationTimeline.GetSnapshot(GetWorld()->GetTimeSeconds() - RepMovementTimeline::InterpolationOffset);
+	RepSnapshot MovementSnapshot = RepMovementTimeline.GetSnapshot(GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset);
 	ApplySnapshot(MovementSnapshot);
 }
 
@@ -34,7 +34,7 @@ void UCustomCharacterMovementComponent::OnReceiveServerUpdate(const FVector& New
 {
 	//UpdatedComponent->SetWorldLocationAndRotation(NewLocation, NewRotation, /*bSweep=*/ false);
 	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Server update at: %f"), GetWorld()->GetTimeSeconds()));
-	ReplicationTimeline.AddSnapshot(NewLocation, NewRotation, NewVelocity, GetWorld()->GetTimeSeconds());
+	RepMovementTimeline.AddSnapshot(RepSnapshot(NewLocation, NewRotation, NewVelocity), GetWorld()->GetTimeSeconds());
 }
 
 void UCustomCharacterMovementComponent::ApplySnapshot(const RepSnapshot& Snapshot)

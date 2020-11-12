@@ -11,7 +11,7 @@ RepMovementTimeline::~RepMovementTimeline()
 }
 
 // TODO: Make the interpolation offset dynamic
-const float RepMovementTimeline::InterpolationOffset = 0.8f;
+const float RepMovementTimeline::InterpolationOffset = 0.3f;
 
 void RepMovementTimeline::DeleteOldSnapshots(float Time)
 {
@@ -53,11 +53,11 @@ RepSnapshot RepMovementTimeline::GetSnapshot(float Time) const
 		// There is no data, so just return a zeroed snapshot
 		return RepSnapshot();
 	}
-	if (Time < SnapshotTimes[0]) {
+	if (Time <= SnapshotTimes[0]) {
 		// The requested time predates the timeline, so simply return the first snapshot
 		return Snapshots[0];
 	}
-	if (Time > SnapshotTimes.Last()) {
+	if (Time >= SnapshotTimes.Last()) {
 		// The requested time postdates the timeline, so simply return the last snapshot
 		//TODO: add extrapolation here?
 		return Snapshots.Last();

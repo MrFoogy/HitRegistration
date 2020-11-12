@@ -6,13 +6,11 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
+#include "Net/UnrealNetwork.h"
 #include "GameFramework/InputSettings.h"
-#include "HeadMountedDisplayFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
-#include "MotionControllerComponent.h"
 #include "CustomCharacterMovementComponent.h"
 #include "Misc/CString.h"
-#include "XRMotionControllerBase.h" // for FXRMotionControllerBase::RightHandSourceId
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 
@@ -115,6 +113,14 @@ void AFPSTemplateCharacter::SetupPlayerInputComponent(class UInputComponent* Pla
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AFPSTemplateCharacter::LookUpAtRate);
 }
 
+void AFPSTemplateCharacter::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	//Do replications on properties
+	DOREPLIFETIME(AFPSTemplateCharacter, RepViewRotation);
+}
+
 void AFPSTemplateCharacter::OnFire()
 {
 	/*
@@ -169,6 +175,7 @@ void AFPSTemplateCharacter::OnFire()
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Hit: %s"), *Hit.BoneName.ToString()));
 			DrawDebugBox(GetWorld(), HitPlayer->GetActorLocation(), FVector(60.0f, 30.0f, 45.0f), HitPlayer->GetActorQuat(), FColor::Orange, 1.0f);
 			HitPlayer->DrawHitboxes(FColor::Orange);
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Ping at client: %f"), GetPing()));
 			ServerFire(HitPlayer);
 		}
 	}
@@ -216,20 +223,39 @@ void AFPSTemplateCharacter::OnRep_ReplicatedMovement()
 	MovementComponent->OnReceiveServerUpdate(NewLocation, ReplicatedMovement.Rotation.Quaternion(), ReplicatedMovement.LinearVelocity);
 }
 
+void AFPSTemplateCharacter::OnRep_RepViewRotation()
+{
+	RepViewRotationTimeline.AddSnapshot(RepViewRotationSnapshot(RepViewRotation), GetWorld()->GetTimeSeconds());
+}
+
+FRotator AFPSTemplateCharacter::GetViewRotation()
+{
+	if (GetController() != NULL) {
+		return GetController()->GetControlRotation();
+	}
+	else {
+		return RepViewRotationTimeline.GetSnapshot(GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset).ViewRotation;
+	}
+}
+
 void AFPSTemplateCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
 	Super::PreReplication(ChangedPropertyTracker);
 	if (Role == ROLE_Authority)
 	{
+		// Add a movement snapshot
 		AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *) GetWorld()->GetAuthGameMode();
 		if (GameMode != NULL) 
 		{
-			RepMovementTimeline& Timeline = GameMode->GetRepMovementTimeline((IRepMovable*) this);
+			RepTimeline<RepSnapshot>& Timeline = GameMode->GetRepMovementTimeline((IRepMovable*) this);
 			// After Super::PreReplication has been called, ReplicatedMovement should be updated
 			UE_LOG(LogTemp, Warning, TEXT("Add snapshot time: %f"), GetWorld()->GetTimeSeconds());
-			Timeline.AddSnapshot(ReplicatedMovement.Location, ReplicatedMovement.Rotation.Quaternion(), 
-				ReplicatedMovement.LinearVelocity, GetWorld()->GetTimeSeconds());
+			Timeline.AddSnapshot(RepSnapshot(ReplicatedMovement.Location, ReplicatedMovement.Rotation.Quaternion(), 
+				ReplicatedMovement.LinearVelocity), GetWorld()->GetTimeSeconds());
 		}
+
+		// Update the RepViewRotation member for replication
+		RepViewRotation = GetController()->GetControlRotation();
 	}
 }
 
@@ -242,10 +268,10 @@ void AFPSTemplateCharacter::Tick(float DeltaSeconds)
 	}
 	AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *)GetWorld()->GetAuthGameMode();
 	if (GameMode != NULL) {
-		RepAnimationTimeline& AnimationTimeline = GameMode->GetRepAnimationTimeline((IRepMovable*)this);
+		RepTimeline<RepAnimationSnapshot>& AnimationTimeline = GameMode->GetRepAnimationTimeline((IRepMovable*)this);
 		TMap<physx::PxShape*, physx::PxTransform> ShapeTransforms;
 		SavePhysicsShapeTransformsGlobal(ShapeTransforms);
-		AnimationTimeline.AddSnapshot(ShapeTransforms, GetWorld()->GetTimeSeconds());
+		AnimationTimeline.AddSnapshot(RepAnimationSnapshot(ShapeTransforms), GetWorld()->GetTimeSeconds());
 	}
 }
 
@@ -267,8 +293,10 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 		FQuat ServerRotation = Target->GetActorQuat();
 
 		GameMode->GetRepWorldTimelines().PreRollbackWorld((IRepMovable*)this), 
+		// TODO: the multiplication with 2 here is only because the custom PktLag seems to add only 1/2 its RTT to this variable?
 		GameMode->GetRepWorldTimelines().RollbackWorld((IRepMovable*)this, GetWorld()->GetTimeSeconds(), 
-			RepMovementTimeline::InterpolationOffset, GetPlayerState()->Ping * 0.001f);
+			RepMovementTimeline::InterpolationOffset, GetPing() * 4.0f * 0.001f);
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, FString::Printf(TEXT("Ping at server: %f"), GetPing()));
 		ServerSendShapeTransforms(Target, ServerReplicationMessageType::RollbackState);
 		FVector RollbackPosition = Target->GetActorLocation();
 		FQuat RollbackRotation = Target->GetActorQuat();
@@ -451,4 +479,9 @@ void AFPSTemplateCharacter::SetPhysicsShapeTransformsGlobal(TMap<physx::PxShape*
 		PxShape->setLocalPose(ActorGlobalPose.getInverse() * Transforms[PxShape]);
 	};
 	PerformPhysicsShapeOperation(ShapeFunction);
+}
+
+float AFPSTemplateCharacter::GetPing()
+{
+	return GetPlayerState()->Ping;
 }

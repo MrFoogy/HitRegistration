@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "RepMovementTimeline.h"
+#include "RepTimeline.h"
 #include "RepSnapshot.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -28,5 +28,5 @@ public:
 protected:
 	void SmoothClientPosition(float DeltaSeconds) override;
 
-	RepMovementTimeline ReplicationTimeline;
+	RepTimeline<RepSnapshot> RepMovementTimeline;
 };

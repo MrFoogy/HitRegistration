@@ -20,8 +20,8 @@ void URepWorldTimelines::ClearWorldTimelines()
 void URepWorldTimelines::InitializeTimeline(IRepMovable* RepMovable)
 {
 	RepObjects.Add(RepMovable);
-	MovementTimelines.Add(RepMovable, RepMovementTimeline());
-	AnimationTimelines.Add(RepMovable, RepAnimationTimeline());
+	MovementTimelines.Add(RepMovable, RepTimeline<RepSnapshot>());
+	AnimationTimelines.Add(RepMovable, RepTimeline<RepAnimationSnapshot>());
 }
 
 bool URepWorldTimelines::HasTimeline(IRepMovable* RepMovable) const
@@ -29,12 +29,12 @@ bool URepWorldTimelines::HasTimeline(IRepMovable* RepMovable) const
 	return MovementTimelines.Contains(RepMovable);
 }
 
-RepMovementTimeline& URepWorldTimelines::GetMovementTimeline(IRepMovable* RepMovable)
+RepTimeline<RepSnapshot>& URepWorldTimelines::GetMovementTimeline(IRepMovable* RepMovable)
 {
 	return MovementTimelines[RepMovable];
 }
 
-RepAnimationTimeline& URepWorldTimelines::GetAnimationTimeline(IRepMovable* RepMovable)
+RepTimeline<RepAnimationSnapshot>& URepWorldTimelines::GetAnimationTimeline(IRepMovable* RepMovable)
 {
 	return AnimationTimelines[RepMovable];
 }
@@ -54,9 +54,9 @@ void URepWorldTimelines::RollbackWorld(IRepMovable* ExcludedMovable, float Curre
 	for (auto& Elem : MovementTimelines) 
 	{
 		if (Elem.Key == ExcludedMovable) continue;
-		UE_LOG(LogTemp, Warning, TEXT("RTT: %f"), RTT);
-		UE_LOG(LogTemp, Warning, TEXT("Int offs: %f"), InterpolationOffset);
-		UE_LOG(LogTemp, Warning, TEXT("Get snapshot time: %f"), RollbackTime);
+		//UE_LOG(LogTemp, Warning, TEXT("RTT: %f"), RTT);
+		//UE_LOG(LogTemp, Warning, TEXT("Int offs: %f"), InterpolationOffset);
+		//UE_LOG(LogTemp, Warning, TEXT("Get snapshot time: %f"), RollbackTime);
 		RepSnapshot RollbackSnapshot = Elem.Value.GetSnapshot(RollbackTime);
 		Elem.Key->RollbackMovement(RollbackSnapshot);
 	}

@@ -20,4 +20,6 @@ public:
 	void SetShapeTransform(physx::PxShape* Shape, physx::PxTransform Transform);
 
 	TMap<physx::PxShape*, physx::PxTransform>& GetShapeTransforms();
+
+	static RepAnimationSnapshot Interpolate(const RepAnimationSnapshot& Start, const RepAnimationSnapshot& End, float Alpha);
 };

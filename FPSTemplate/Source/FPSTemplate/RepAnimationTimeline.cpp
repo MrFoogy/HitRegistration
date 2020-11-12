@@ -11,7 +11,7 @@ RepAnimationTimeline::~RepAnimationTimeline()
 }
 
 // TODO: Make the interpolation offset dynamic
-const float RepAnimationTimeline::InterpolationOffset = 0.8f;
+const float RepAnimationTimeline::InterpolationOffset = 0.1f;
 
 void RepAnimationTimeline::DeleteOldSnapshots(float Time)
 {
@@ -63,15 +63,15 @@ RepAnimationSnapshot RepAnimationTimeline::GetSnapshot(float Time) const
 		return Snapshots.Last();
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("We're properly interpolating!"));
+	//UE_LOG(LogTemp, Warning, TEXT("We're properly interpolating!"));
 	
-	UE_LOG(LogTemp, Warning, TEXT("Total snapshots: %d"), Snapshots.Num());
+	//UE_LOG(LogTemp, Warning, TEXT("Total snapshots: %d"), Snapshots.Num());
 	// Find two snapshots and return an interpolation between them
 	for (int i = 0; i < SnapshotTimes.Num(); i++) {
 		//UE_LOG(LogTemp, Warning, TEXT("Snapshot at: %f"), SnapshotTimes[i]);
 		if (SnapshotTimes[i] > Time) {
 			// We found the first snapshot with a later time
-			UE_LOG(LogTemp, Warning, TEXT("Used snapshot: %d"), i);
+			//UE_LOG(LogTemp, Warning, TEXT("Used snapshot: %d"), i);
 			float InterpolationAlpha = UKismetMathLibrary::NormalizeToRange(Time, SnapshotTimes[i - 1], SnapshotTimes[i]);
 			return Interpolate(Snapshots[i - 1], Snapshots[i], InterpolationAlpha);
 		}
