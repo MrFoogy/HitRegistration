@@ -12,6 +12,7 @@ UCustomCharacterMovementComponent::UCustomCharacterMovementComponent(const FObje
 void UCustomCharacterMovementComponent::MoveSmooth(const FVector& InVelocity, const float DeltaSeconds, FStepDownResult* OutStepDownResult)
 {
 	//Super::MoveSmooth(InVelocity, DeltaSeconds, OutStepDownResult);
+	//UE_LOG(LogTemp, Warning, TEXT("Rep time move: %f"), GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset);
 	RepSnapshot MovementSnapshot = RepMovementTimeline.GetSnapshot(GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset);
 	ApplySnapshot(MovementSnapshot);
 }
@@ -40,4 +41,10 @@ void UCustomCharacterMovementComponent::OnReceiveServerUpdate(const FVector& New
 void UCustomCharacterMovementComponent::ApplySnapshot(const RepSnapshot& Snapshot)
 {
 	UpdatedComponent->SetWorldLocationAndRotation(Snapshot.Position, Snapshot.Rotation, /*bSweep=*/ false);
+}
+
+FVector UCustomCharacterMovementComponent::GetRepVelocity()
+{
+	//UE_LOG(LogTemp, Warning, TEXT("Rep time anim: %f"), GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset);
+	return RepMovementTimeline.GetSnapshot(GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset).Velocity;
 }

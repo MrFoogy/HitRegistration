@@ -238,6 +238,17 @@ FRotator AFPSTemplateCharacter::GetViewRotation()
 	}
 }
 
+FVector AFPSTemplateCharacter::GetPlayerVelocity()
+{
+	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
+		return MovementComponent->GetRepVelocity();
+	if (GetController() != NULL) {
+		return MovementComponent->Velocity;
+	}
+	else {
+	}
+}
+
 void AFPSTemplateCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
 	Super::PreReplication(ChangedPropertyTracker);

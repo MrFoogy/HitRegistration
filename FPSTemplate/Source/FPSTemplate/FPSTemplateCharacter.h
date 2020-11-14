@@ -94,6 +94,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	FRotator GetViewRotation();
 
+	UFUNCTION(BlueprintCallable)
+	FVector GetPlayerVelocity();
+
 protected:
 	/** Fires a projectile. */
 	void OnFire();

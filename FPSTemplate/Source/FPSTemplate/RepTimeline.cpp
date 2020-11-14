@@ -15,7 +15,7 @@ RepTimeline<T>::~RepTimeline()
 
 // TODO: Make the interpolation offset dynamic
 template <typename T>
-const float RepTimeline<T>::InterpolationOffset = 0.3f;
+const float RepTimeline<T>::InterpolationOffset = 0.8f;
 
 template <typename T>
 void RepTimeline<T>::DeleteOldSnapshots(float Time)

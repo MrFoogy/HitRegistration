@@ -24,6 +24,7 @@ public:
 
 	void OnReceiveServerUpdate(const FVector& NewLocation, const FQuat& NewRotation, const FVector& NewVelocity);
 	virtual void ApplySnapshot(const RepSnapshot& Spanshot);
+	FVector GetRepVelocity();
 
 protected:
 	void SmoothClientPosition(float DeltaSeconds) override;
