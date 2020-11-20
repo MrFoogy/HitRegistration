@@ -60,6 +60,12 @@ void AFPSTemplateCharacter::BeginPlay()
 	// Call the base class  
 	Super::BeginPlay();
 
+	/*
+	if (!GetWorld()->IsServer()) {
+		GetMesh()->SetOwnerNoSee(true);
+	}
+	*/
+
 	CurrentWeapon = GetWorld()->SpawnActor<AWeapon>(StartWeaponClass);
 	CurrentWeapon->SetOwnerCharacter(this);
 	bool ownedLocally = IsLocallyControlled();
@@ -173,7 +179,7 @@ void AFPSTemplateCharacter::OnFire()
 		AFPSTemplateCharacter* HitPlayer = Cast<AFPSTemplateCharacter>(Hit.GetActor());
 		if (HitPlayer != NULL) {
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Hit: %s"), *Hit.BoneName.ToString()));
-			DrawDebugBox(GetWorld(), HitPlayer->GetActorLocation(), FVector(60.0f, 30.0f, 45.0f), HitPlayer->GetActorQuat(), FColor::Orange, 1.0f);
+			DrawDebugBox(GetWorld(), HitPlayer->GetActorLocation(), FVector(60.0f, 30.0f, 45.0f), HitPlayer->GetActorQuat(), FColor::Orange, false, 5.0f);
 			HitPlayer->DrawHitboxes(FColor::Orange);
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Ping at client: %f"), GetPing()));
 			ServerFire(HitPlayer);
@@ -218,14 +224,16 @@ void AFPSTemplateCharacter::LookUpAtRate(float Rate)
 void AFPSTemplateCharacter::OnRep_ReplicatedMovement()
 {
 	// TODO: by overriding this, the movement state / animation systems don't seem to work properly
+	UE_LOG(LogTemp, Warning, TEXT("Receive at: %f"), GetWorld()->GetTimeSeconds());
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
 	FVector NewLocation = FRepMovement::RebaseOntoLocalOrigin(ReplicatedMovement.Location, this);
-	MovementComponent->OnReceiveServerUpdate(NewLocation, ReplicatedMovement.Rotation.Quaternion(), ReplicatedMovement.LinearVelocity);
+	MovementComponent->OnReceiveServerUpdate(NewLocation, ReplicatedMovement.Rotation.Quaternion(), ReplicatedMovement.LinearVelocity, NetUpdateFrequency);
 }
 
 void AFPSTemplateCharacter::OnRep_RepViewRotation()
 {
-	RepViewRotationTimeline.AddSnapshot(RepViewRotationSnapshot(RepViewRotation), GetWorld()->GetTimeSeconds());
+	RepViewRotationTimeline.AddSnapshotCompensating(RepViewRotationSnapshot(RepViewRotation), GetWorld()->GetTimeSeconds(), 
+		GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset, NetUpdateFrequency);
 }
 
 FRotator AFPSTemplateCharacter::GetViewRotation()
@@ -241,11 +249,11 @@ FRotator AFPSTemplateCharacter::GetViewRotation()
 FVector AFPSTemplateCharacter::GetPlayerVelocity()
 {
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
-		return MovementComponent->GetRepVelocity();
 	if (GetController() != NULL) {
 		return MovementComponent->Velocity;
 	}
 	else {
+		return MovementComponent->GetRepVelocity();
 	}
 }
 
@@ -260,7 +268,7 @@ void AFPSTemplateCharacter::PreReplication(IRepChangedPropertyTracker & ChangedP
 		{
 			RepTimeline<RepSnapshot>& Timeline = GameMode->GetRepMovementTimeline((IRepMovable*) this);
 			// After Super::PreReplication has been called, ReplicatedMovement should be updated
-			UE_LOG(LogTemp, Warning, TEXT("Add snapshot time: %f"), GetWorld()->GetTimeSeconds());
+			UE_LOG(LogTemp, Warning, TEXT("Server add at: %f"), GetWorld()->GetTimeSeconds());
 			Timeline.AddSnapshot(RepSnapshot(ReplicatedMovement.Location, ReplicatedMovement.Rotation.Quaternion(), 
 				ReplicatedMovement.LinearVelocity), GetWorld()->GetTimeSeconds());
 		}
@@ -304,9 +312,9 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 		FQuat ServerRotation = Target->GetActorQuat();
 
 		GameMode->GetRepWorldTimelines().PreRollbackWorld((IRepMovable*)this), 
-		// TODO: the multiplication with 2 here is only because the custom PktLag seems to add only 1/2 its RTT to this variable?
+		// TODO: the multiplication with 4 here is only because the custom PktLag seems to add only 1/2 its RTT to this variable?
 		GameMode->GetRepWorldTimelines().RollbackWorld((IRepMovable*)this, GetWorld()->GetTimeSeconds(), 
-			RepMovementTimeline::InterpolationOffset, GetPing() * 4.0f * 0.001f);
+			RepTimeline<RepSnapshot>::InterpolationOffset, 0.0f /*GetPing() * 4.0f * 0.001f*/);
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, FString::Printf(TEXT("Ping at server: %f"), GetPing()));
 		ServerSendShapeTransforms(Target, ServerReplicationMessageType::RollbackState);
 		FVector RollbackPosition = Target->GetActorLocation();
@@ -347,8 +355,8 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 void AFPSTemplateCharacter::ClientConfirmHit_Implementation(AFPSTemplateCharacter* HitPlayer, FVector RollbackPosition, 
 	FQuat RollbackRotation, FVector ServerPosition, FQuat ServerRotation)
 {
-	DrawDebugBox(GetWorld(), RollbackPosition , FVector(60.0f, 30.0f, 45.0f), FQuat::Identity, FColor::Yellow, 1.0f);
-	DrawDebugBox(GetWorld(), ServerPosition , FVector(60.0f, 30.0f, 45.0f), FQuat::Identity, FColor::Green, 1.0f);
+	DrawDebugBox(GetWorld(), RollbackPosition , FVector(60.0f, 30.0f, 45.0f), RollbackRotation, FColor::Yellow, false, 5.0f);
+	DrawDebugBox(GetWorld(), ServerPosition , FVector(60.0f, 30.0f, 45.0f), ServerRotation, FColor::Green, false, 5.0f);
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Player: %s"), *RollbackPosition.ToString()));
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("Player: %s"), *ServerPosition.ToString()));
 }
@@ -363,7 +371,7 @@ void AFPSTemplateCharacter::DisplayShapeTransform(int ShapeID,
 	FVector Position, FQuat Rotation, ServerReplicationMessageType Type)
 {
 	physx::PxShape* Shape = AllShapes[ShapeID];
-	DebugUtil::DrawPxShape(GetWorld(), Shape, Position, Rotation, Type == ServerReplicationMessageType::ServerState ? FColor::Green : FColor::Yellow);
+	DebugUtil::DrawPxShape(GetWorld(), Shape, Position, Rotation, Type == ServerReplicationMessageType::ServerState ? FColor::Green : FColor::Yellow, 5.0f);
 }
 
 void AFPSTemplateCharacter::PrepareRollback()
@@ -436,7 +444,7 @@ void AFPSTemplateCharacter::DrawHitboxes(const FColor& Color)
 	auto World = GetWorld();
 	auto ShapeFunction = [Color, World](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
 	{
-		DebugUtil::DrawPxShape(World, PxActor, PxShape, Color);
+		DebugUtil::DrawPxShape(World, PxActor, PxShape, Color, 5.0f);
 	};
 	PerformPhysicsShapeOperation(ShapeFunction);
 }

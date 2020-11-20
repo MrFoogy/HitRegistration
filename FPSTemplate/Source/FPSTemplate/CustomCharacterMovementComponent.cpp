@@ -31,11 +31,13 @@ void UCustomCharacterMovementComponent::SmoothCorrection(const FVector& OldLocat
 }
 
 void UCustomCharacterMovementComponent::OnReceiveServerUpdate(const FVector& NewLocation, 
-	const FQuat& NewRotation, const FVector& NewVelocity)
+	const FQuat& NewRotation, const FVector& NewVelocity, float ReplicationFrequency)
 {
 	//UpdatedComponent->SetWorldLocationAndRotation(NewLocation, NewRotation, /*bSweep=*/ false);
 	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Server update at: %f"), GetWorld()->GetTimeSeconds()));
-	RepMovementTimeline.AddSnapshot(RepSnapshot(NewLocation, NewRotation, NewVelocity), GetWorld()->GetTimeSeconds());
+
+	RepMovementTimeline.AddSnapshotCompensating(RepSnapshot(NewLocation, NewRotation, NewVelocity), GetWorld()->GetTimeSeconds(),
+		GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset, ReplicationFrequency);
 }
 
 void UCustomCharacterMovementComponent::ApplySnapshot(const RepSnapshot& Snapshot)

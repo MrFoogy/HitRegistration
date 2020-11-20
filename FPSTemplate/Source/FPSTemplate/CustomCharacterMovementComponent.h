@@ -22,7 +22,7 @@ public:
 	void SmoothCorrection(const FVector& OldLocation, const FQuat& OldRotation,
 		const FVector& NewLocation, const FQuat& NewRotation) override;
 
-	void OnReceiveServerUpdate(const FVector& NewLocation, const FQuat& NewRotation, const FVector& NewVelocity);
+	void OnReceiveServerUpdate(const FVector& NewLocation, const FQuat& NewRotation, const FVector& NewVelocity, float ReplicationFrequency);
 	virtual void ApplySnapshot(const RepSnapshot& Spanshot);
 	FVector GetRepVelocity();
 

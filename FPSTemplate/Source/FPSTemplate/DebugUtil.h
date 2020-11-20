@@ -18,6 +18,6 @@ public:
 	DebugUtil();
 	~DebugUtil();
 
-	static void DrawPxShape(UWorld* World, physx::PxRigidActor* PxActor, physx::PxShape* Shape, FColor Color);
-	static void DrawPxShape(UWorld* World, physx::PxShape* Shape, FVector Position, FQuat Rotation, FColor Color);
+	static void DrawPxShape(UWorld* World, physx::PxRigidActor* PxActor, physx::PxShape* Shape, FColor Color, float LifeTime);
+	static void DrawPxShape(UWorld* World, physx::PxShape* Shape, FVector Position, FQuat Rotation, FColor Color, float LifeTime);
 };

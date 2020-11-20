@@ -15,7 +15,7 @@ RepTimeline<T>::~RepTimeline()
 
 // TODO: Make the interpolation offset dynamic
 template <typename T>
-const float RepTimeline<T>::InterpolationOffset = 0.8f;
+const float RepTimeline<T>::InterpolationOffset = 0.5f;
 
 template <typename T>
 void RepTimeline<T>::DeleteOldSnapshots(float Time)
@@ -55,6 +55,12 @@ bool RepTimeline<T>::HasSnapshots() const
 }
 
 template <typename T>
+bool RepTimeline<T>::IsInInterpolationTime(float Time) const 
+{
+	return SnapshotTimes.Num() > 0 && !(Time >= SnapshotTimes.Last());
+}
+
+template <typename T>
 T RepTimeline<T>::GetSnapshot(float Time, bool Print) const
 {
 	if (SnapshotTimes.Num() == 0) {
@@ -68,6 +74,7 @@ T RepTimeline<T>::GetSnapshot(float Time, bool Print) const
 	if (Time >= SnapshotTimes.Last()) {
 		// The requested time postdates the timeline, so simply return the last snapshot
 		//TODO: add extrapolation here?
+		//UE_LOG(LogTemp, Warning, TEXT("Using last snapshot!"), Time);
 		return Snapshots.Last();
 	}
 	
@@ -91,6 +98,40 @@ T RepTimeline<T>::GetSnapshot(float Time, bool Print) const
 	checkNoEntry();
 
 	return T();
+}
+	
+template <typename T>
+void RepTimeline<T>::UpdateLastSnapshotTime(float Time)
+{
+	if (SnapshotTimes.Num() == 0) return;
+	SnapshotTimes[SnapshotTimes.Num() - 1] = Time;
+}
+
+template <typename T>
+void RepTimeline<T>::AddDuplicateLastSnapshot(float Time)
+{
+	if (SnapshotTimes.Num() == 0) return;
+	// TODO: is the copy constructor set up properly?
+	AddSnapshot(Snapshots.Last(), Time);
+}
+
+template <typename T>
+void RepTimeline<T>::AddSnapshotCompensating(T NewSnapshot, float Time, float CurrentInterpolationTime, float UpdateFrequency)
+{
+	CompensateMissedUpdates(CurrentInterpolationTime, Time, UpdateFrequency);
+	AddSnapshot(NewSnapshot, Time);
+}
+
+template <typename T>
+void RepTimeline<T>::CompensateMissedUpdates(float InterpolationTime, float CurrentTime, float UpdateFrequency)
+{
+	// In case there was a very long time since receiving the last update, upon receiving this update the interpolation would instantly
+	// turn to be near the end, and there would be a noticable skip.
+	// To prevent this, we add another "dummy" snapshot to start the interpolation from, which has the Time that we expect the 
+	// previous update from the current one would have had.
+	if (!IsInInterpolationTime(InterpolationTime)) {
+		AddDuplicateLastSnapshot(CurrentTime - (1.0f / UpdateFrequency));
+	}
 }
 
 template <typename T>

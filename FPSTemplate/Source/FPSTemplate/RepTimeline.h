@@ -36,9 +36,37 @@ public:
 	void AddSnapshot(T NewSnapshot, float Time);
 
 	/**
+	* Adds a new snapshot at the given Time
+	*/
+	void AddSnapshotCompensating(T NewSnapshot, float Time, float CurrentInterpolationTime, float UpdateFrequency);
+
+	/**
+	* Checks if is currently not interpolating, meaning there was a long time since the last update. 
+	* If so, insert a duplicate of the latest snapshot to emulate receiving another recent update,
+	* at a Time determined by UpdateFrequency
+	*/
+	void CompensateMissedUpdates(float InterpolationTime, float CurrentTime, float UpdateFrequency);
+
+	/**
 	* Returns whether or not the timeline contains any snapshots
 	*/
 	bool HasSnapshots() const;
+
+	/**
+	* Returns whether or not the timeline has a past and future snapshot to interpolate between at the given time
+	* @param Time - the time at which to check for past and future snapshots
+	*/
+	bool IsInInterpolationTime(float Time) const;
+
+	/**
+	* Update the time of the last snapshot to be Time
+	*/
+	void UpdateLastSnapshotTime(float Time);
+
+	/**
+	* Duplicates the last snapshot and adds it to the timeline at time Time.
+	*/
+	void AddDuplicateLastSnapshot(float Time);
 
 	// Constant interpolation offset added
 	static const float InterpolationOffset;
