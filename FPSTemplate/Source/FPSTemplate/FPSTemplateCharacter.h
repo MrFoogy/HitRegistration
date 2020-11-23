@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerState.h"
+#include "GameFramework/GameState.h"
 #include "Weapon.h"
 #include "Runtime/Engine/Public/EngineGlobals.h"
 #include "RepMovable.h"
@@ -13,6 +14,7 @@
 #include "RepViewRotationSnapshot.h"
 #include "RepSnapshot.h"
 #include "RepAnimationSnapshot.h"
+#include "RollbackTimelineWidget.h"
 #include "DebugUtil.h"
 #include "PhysXIncludes.h"
 #include "PhysicsPublic.h"	
@@ -55,6 +57,18 @@ protected:
 	TMap<physx::PxShape*, int> ShapeIDs;
 
 	RepTimeline<RepViewRotationSnapshot> RepViewRotationTimeline;
+
+	TArray<RepAnimationSnapshot> PosesLocal;
+	TArray<RepAnimationSnapshot> PosesRollback;
+	TArray<float> LocalPoseTimes;
+	int AnimSaveCounter = 0;
+	float LastDebugShapeSendTime = 0.0f;
+	float DebugShapeDisplayTime = 0.0f;
+	class URollbackTimelineWidget* RollbackTimelineWidget;
+
+	bool IsScoping = false;
+	bool ShouldUpdateTimelineSlider = true;
+	bool ShouldInterpolateDebugPoses = false;
 
 public:
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
@@ -101,6 +115,10 @@ protected:
 	/** Fires a projectile. */
 	void OnFire();
 
+	void OnStartScoping();
+
+	void OnStopScoping();
+
 	/** Handles moving forward/backward */
 	void MoveForward(float Val);
 
@@ -133,6 +151,10 @@ protected:
 
 	void SetPhysicsShapeTransformsGlobal(TMap<physx::PxShape*, physx::PxTransform>& Transforms);
 
+	void OnReceiveRollbackShape(int Counter, int ShapeID, FVector Position, FQuat Rotation);
+
+	void SaveLocalShapeForDebug();
+
 	/** 
 	 * Calls a function for each Physics Shape on the character
 	 * @param Function the function to be called
@@ -162,11 +184,17 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerFire(AFPSTemplateCharacter* Target);
 
+	UFUNCTION(Server, Reliable)
+	void ServerRequestAnimState(AFPSTemplateCharacter* Target, int Counter);
+
 	UFUNCTION(Client, Reliable)
 	void ClientConfirmHit(AFPSTemplateCharacter* HitPlayer, FVector RollbackPosition, FQuat RollbackRotation, FVector ServerPosition, FQuat ServerRotation);
 
 	UFUNCTION(Client, Reliable)
 	void ClientDisplayShapeTransform(AFPSTemplateCharacter* Target, int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type);
+
+	UFUNCTION(Client, Reliable)
+	void ClientSendRollbackShape(AFPSTemplateCharacter* Target, int Counter, int ShapeID, FVector Position, FQuat Rotation);
 
 	UPROPERTY(Transient, Replicated, ReplicatedUsing=OnRep_RepViewRotation)
 	FRotator RepViewRotation;
@@ -182,4 +210,11 @@ public:
 	virtual void RollbackMovement(const RepSnapshot& RepSnapshot) override;
 	virtual void RollbackAnimation(RepAnimationSnapshot& RepSnapshot) override;
 	virtual void ResetRollback() override;
+
+public:
+	void SetRollbackTimelineValue(float Value);
+	AFPSTemplateCharacter* DebugFindOtherPlayer();
+	void OnOpenRollbackTimelineUI(URollbackTimelineWidget* Widget);
+	void SetShouldUpdateTimelineSlider(bool ShouldUpdateSlider);
+	void SetShouldInterpolateDebugPoses(bool ShouldInterpolatePoses);
 };

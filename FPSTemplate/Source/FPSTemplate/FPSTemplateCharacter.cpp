@@ -103,6 +103,9 @@ void AFPSTemplateCharacter::SetupPlayerInputComponent(class UInputComponent* Pla
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
+	PlayerInputComponent->BindAction("Scope", IE_Pressed, this, &AFPSTemplateCharacter::OnStartScoping);
+	PlayerInputComponent->BindAction("Scope", IE_Released, this, &AFPSTemplateCharacter::OnStopScoping);
+
 	// Bind fire event
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AFPSTemplateCharacter::OnFire);
 
@@ -187,6 +190,16 @@ void AFPSTemplateCharacter::OnFire()
 	}
 }
 
+void AFPSTemplateCharacter::OnStartScoping()
+{
+	IsScoping = true;
+}
+
+void AFPSTemplateCharacter::OnStopScoping()
+{
+	IsScoping = false;
+}
+
 //Commenting this section out to be consistent with FPS BP template.
 //This allows the user to turn without using the right virtual joystick
 
@@ -224,7 +237,7 @@ void AFPSTemplateCharacter::LookUpAtRate(float Rate)
 void AFPSTemplateCharacter::OnRep_ReplicatedMovement()
 {
 	// TODO: by overriding this, the movement state / animation systems don't seem to work properly
-	UE_LOG(LogTemp, Warning, TEXT("Receive at: %f"), GetWorld()->GetTimeSeconds());
+	//UE_LOG(LogTemp, Warning, TEXT("Receive at: %f"), GetWorld()->GetTimeSeconds());
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
 	FVector NewLocation = FRepMovement::RebaseOntoLocalOrigin(ReplicatedMovement.Location, this);
 	MovementComponent->OnReceiveServerUpdate(NewLocation, ReplicatedMovement.Rotation.Quaternion(), ReplicatedMovement.LinearVelocity, NetUpdateFrequency);
@@ -268,7 +281,7 @@ void AFPSTemplateCharacter::PreReplication(IRepChangedPropertyTracker & ChangedP
 		{
 			RepTimeline<RepSnapshot>& Timeline = GameMode->GetRepMovementTimeline((IRepMovable*) this);
 			// After Super::PreReplication has been called, ReplicatedMovement should be updated
-			UE_LOG(LogTemp, Warning, TEXT("Server add at: %f"), GetWorld()->GetTimeSeconds());
+			//UE_LOG(LogTemp, Warning, TEXT("Server add at: %f"), GetWorld()->GetTimeSeconds());
 			Timeline.AddSnapshot(RepSnapshot(ReplicatedMovement.Location, ReplicatedMovement.Rotation.Quaternion(), 
 				ReplicatedMovement.LinearVelocity), GetWorld()->GetTimeSeconds());
 		}
@@ -292,6 +305,79 @@ void AFPSTemplateCharacter::Tick(float DeltaSeconds)
 		SavePhysicsShapeTransformsGlobal(ShapeTransforms);
 		AnimationTimeline.AddSnapshot(RepAnimationSnapshot(ShapeTransforms), GetWorld()->GetTimeSeconds());
 	}
+	if (Role == ROLE_AutonomousProxy) {
+		// Find the other players
+		if (IsScoping) {
+			AFPSTemplateCharacter* TargetCharacter = DebugFindOtherPlayer();
+			FRotator Rot = FRotationMatrix::MakeFromX(TargetCharacter->GetActorLocation() - FVector(0.0f, 0.0f, 20.0f) - GetActorLocation()).Rotator();
+			GetController()->SetControlRotation(Rot);
+		}
+		//GetWorld()->GetGameState()->PlayerArray[0]->GetPawn<AFPSTemplateCharacter>();
+		if (GetWorld()->GetTimeSeconds() - LastDebugShapeSendTime > 0.12f) {
+			AFPSTemplateCharacter* OtherPlayer = DebugFindOtherPlayer();
+			if (OtherPlayer != NULL) {
+				ServerRequestAnimState(OtherPlayer, OtherPlayer->AnimSaveCounter);
+				OtherPlayer->SaveLocalShapeForDebug();
+			} 
+			LastDebugShapeSendTime = GetWorld()->GetTimeSeconds();
+		}
+	}
+	if (Role == ROLE_SimulatedProxy) {
+		if (RollbackTimelineWidget != NULL && ShouldUpdateTimelineSlider) {
+			float MaxTimeDiff = LocalPoseTimes[PosesRollback.Num() - 1] - LocalPoseTimes[0];
+			RollbackTimelineWidget->SetSliderMaxValue(MaxTimeDiff);
+			ShouldUpdateTimelineSlider = false;
+		}
+
+		int EndIndex = FMath::Min(PosesLocal.Num(), PosesRollback.Num()) - 1;
+		if (EndIndex == -1) return;
+		int TargetIndex = EndIndex;
+		for (int i = 0; i <= EndIndex; i++) {
+			if (LocalPoseTimes[i] > DebugShapeDisplayTime) {
+				TargetIndex = i;
+				break;
+			}
+		}
+		int StartIndex = FMath::Max(0, TargetIndex - 1);
+		RepAnimationSnapshot LocalPose;
+		RepAnimationSnapshot RollbackPose;
+		if (ShouldInterpolateDebugPoses) {
+			float InterpolationAlpha = UKismetMathLibrary::NormalizeToRange(DebugShapeDisplayTime, LocalPoseTimes[StartIndex], LocalPoseTimes[TargetIndex]);
+			LocalPose = RepAnimationSnapshot::Interpolate(PosesLocal[StartIndex], PosesLocal[TargetIndex], InterpolationAlpha);
+			RollbackPose = RepAnimationSnapshot::Interpolate(PosesRollback[StartIndex], PosesRollback[TargetIndex], InterpolationAlpha);
+		}
+		else {
+			LocalPose = PosesLocal[StartIndex];
+			RollbackPose = PosesRollback[StartIndex];
+		}
+		for (PxShape* Shape : AllShapes) {
+			PxTransform& LocalTransform = LocalPose.GetShapeTransforms()[Shape];
+			DebugUtil::DrawPxShape(GetWorld(), Shape, P2UVector(LocalTransform.p), P2UQuat(LocalTransform.q), FColor::Yellow, 0.0f);
+
+			PxTransform& RollbackTransform = RollbackPose.GetShapeTransforms()[Shape];
+			DebugUtil::DrawPxShape(GetWorld(), Shape, P2UVector(RollbackTransform.p), P2UQuat(RollbackTransform.q), FColor::Orange, 0.0f);
+		}
+	}
+}
+
+void AFPSTemplateCharacter::SaveLocalShapeForDebug()
+{
+	TMap<physx::PxShape*, physx::PxTransform> ShapeTransforms;
+	SavePhysicsShapeTransformsGlobal(ShapeTransforms);
+	PosesLocal.Add(RepAnimationSnapshot(ShapeTransforms));
+	LocalPoseTimes.Add(GetWorld()->GetTimeSeconds());
+	AnimSaveCounter++;
+}
+
+AFPSTemplateCharacter* AFPSTemplateCharacter::DebugFindOtherPlayer()
+{
+	for (APlayerState* PS : GetWorld()->GetGameState()->PlayerArray) {
+		AFPSTemplateCharacter* Character = PS->GetPawn<AFPSTemplateCharacter>();
+		if (Character != this) {
+			return Character;
+		}
+	}
+	return NULL;
 }
 
 void AFPSTemplateCharacter::StartDebugMovement()
@@ -312,9 +398,8 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 		FQuat ServerRotation = Target->GetActorQuat();
 
 		GameMode->GetRepWorldTimelines().PreRollbackWorld((IRepMovable*)this), 
-		// TODO: the multiplication with 4 here is only because the custom PktLag seems to add only 1/2 its RTT to this variable?
 		GameMode->GetRepWorldTimelines().RollbackWorld((IRepMovable*)this, GetWorld()->GetTimeSeconds(), 
-			RepTimeline<RepSnapshot>::InterpolationOffset, 0.0f /*GetPing() * 4.0f * 0.001f*/);
+			RepTimeline<RepSnapshot>::InterpolationOffset, GetPing());
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, FString::Printf(TEXT("Ping at server: %f"), GetPing()));
 		ServerSendShapeTransforms(Target, ServerReplicationMessageType::RollbackState);
 		FVector RollbackPosition = Target->GetActorLocation();
@@ -352,6 +437,39 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 	*/
 }
 
+void AFPSTemplateCharacter::ServerRequestAnimState_Implementation(AFPSTemplateCharacter* Target, int Counter)
+{
+	AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *)GetWorld()->GetAuthGameMode();
+	if (GameMode != NULL) {
+		GameMode->GetRepWorldTimelines().PreRollbackTarget((IRepMovable*) Target), 
+		GameMode->GetRepWorldTimelines().RollbackTarget((IRepMovable*) Target, GetWorld()->GetTimeSeconds(), 
+			RepTimeline<RepSnapshot>::InterpolationOffset, Target->GetPing());
+		for (int i = 0; i < Target->AllShapes.Num(); i++) {
+			PxRigidActor* PxActor = (PxRigidActor*) Target->AllShapes[i]->getActor();
+			PxTransform ShapeGlobalPose = PxActor->getGlobalPose() * Target->AllShapes[i]->getLocalPose();
+			ClientSendRollbackShape(Target, Counter, i, P2UVector(ShapeGlobalPose.p), P2UQuat(ShapeGlobalPose.q));
+		}
+		GameMode->GetRepWorldTimelines().ResetTarget((IRepMovable*) Target);
+	}
+}
+
+void AFPSTemplateCharacter::ClientSendRollbackShape_Implementation(AFPSTemplateCharacter* Target, int Counter, int ShapeID,
+	FVector Position, FQuat Rotation)
+{
+	Target->OnReceiveRollbackShape(Counter, ShapeID, Position, Rotation);
+}
+
+void AFPSTemplateCharacter::OnReceiveRollbackShape(int Counter, int ShapeID,
+	FVector Position, FQuat Rotation)
+{
+	while (PosesRollback.Num() < Counter + 1) {
+		PosesRollback.Add(RepAnimationSnapshot(AllShapes));
+	}
+	PxTransform Transform = PxTransform(U2PVector(Position), U2PQuat(Rotation));
+	PosesRollback[Counter].GetShapeTransforms()[AllShapes[ShapeID]] = Transform;
+
+}
+
 void AFPSTemplateCharacter::ClientConfirmHit_Implementation(AFPSTemplateCharacter* HitPlayer, FVector RollbackPosition, 
 	FQuat RollbackRotation, FVector ServerPosition, FQuat ServerRotation)
 {
@@ -371,7 +489,7 @@ void AFPSTemplateCharacter::DisplayShapeTransform(int ShapeID,
 	FVector Position, FQuat Rotation, ServerReplicationMessageType Type)
 {
 	physx::PxShape* Shape = AllShapes[ShapeID];
-	DebugUtil::DrawPxShape(GetWorld(), Shape, Position, Rotation, Type == ServerReplicationMessageType::ServerState ? FColor::Green : FColor::Yellow, 5.0f);
+	DebugUtil::DrawPxShape(GetWorld(), Shape, Position, Rotation, Type == ServerReplicationMessageType::ServerState ? FColor::Green : FColor::Yellow, 0.0f);
 }
 
 void AFPSTemplateCharacter::PrepareRollback()
@@ -491,7 +609,6 @@ void AFPSTemplateCharacter::SavePhysicsShapeTransformsGlobal(TMap<physx::PxShape
 
 void AFPSTemplateCharacter::SetPhysicsShapeTransformsGlobal(TMap<physx::PxShape*, physx::PxTransform>& Transforms)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Rollback anim"));
 	auto ShapeFunction = [&Transforms](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
 	{
 		physx::PxTransform ActorGlobalPose = PxActor->getGlobalPose();
@@ -502,5 +619,26 @@ void AFPSTemplateCharacter::SetPhysicsShapeTransformsGlobal(TMap<physx::PxShape*
 
 float AFPSTemplateCharacter::GetPing()
 {
-	return GetPlayerState()->Ping;
+	// TODO: the multiplication with 4 here is only because the custom PktLag seems to add only 1/2 its RTT to this variable?
+	return GetPlayerState()->Ping * 0.001f /* * 4.0f */;
+}
+
+void AFPSTemplateCharacter::SetRollbackTimelineValue(float Value)
+{
+	DebugShapeDisplayTime = Value;
+}
+
+void AFPSTemplateCharacter::OnOpenRollbackTimelineUI(URollbackTimelineWidget* Widget)
+{
+	RollbackTimelineWidget = Widget;
+}
+
+void AFPSTemplateCharacter::SetShouldUpdateTimelineSlider(bool ShouldUpdateSlider)
+{
+	ShouldUpdateTimelineSlider = ShouldUpdateSlider;
+}
+
+void AFPSTemplateCharacter::SetShouldInterpolateDebugPoses(bool ShouldInterpolatePoses)
+{
+	ShouldInterpolateDebugPoses = ShouldInterpolatePoses;
 }

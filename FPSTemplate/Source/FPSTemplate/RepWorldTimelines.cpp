@@ -44,27 +44,35 @@ void URepWorldTimelines::PreRollbackWorld(IRepMovable* ExcludedMovable)
 	for (IRepMovable* RepObject : RepObjects) 
 	{
 		if (RepObject == ExcludedMovable) continue;
-		RepObject->PrepareRollback();
+		PreRollbackTarget(RepObject);
 	}
+}
+
+void URepWorldTimelines::PreRollbackTarget(IRepMovable* TargetMovable)
+{
+	TargetMovable->PrepareRollback();
 }
 
 void URepWorldTimelines::RollbackWorld(IRepMovable* ExcludedMovable, float CurrentTime, float InterpolationOffset, float RTT)
 {
-	float RollbackTime = CurrentTime - InterpolationOffset - RTT;
-	for (auto& Elem : MovementTimelines) 
-	{
-		if (Elem.Key == ExcludedMovable) continue;
-		//UE_LOG(LogTemp, Warning, TEXT("RTT: %f"), RTT);
-		//UE_LOG(LogTemp, Warning, TEXT("Int offs: %f"), InterpolationOffset);
-		//UE_LOG(LogTemp, Warning, TEXT("Get snapshot time: %f"), RollbackTime);
-		RepSnapshot RollbackSnapshot = Elem.Value.GetSnapshot(RollbackTime);
-		Elem.Key->RollbackMovement(RollbackSnapshot);
+	for (IRepMovable* RepObject : RepObjects) {
+		if (RepObject != ExcludedMovable) {
+			RollbackTarget(RepObject, CurrentTime, InterpolationOffset, RTT);
+		}
 	}
-	for (auto& Elem : AnimationTimelines) 
-	{
-		if (Elem.Key == ExcludedMovable) continue;
-		RepAnimationSnapshot RollbackSnapshot = Elem.Value.GetSnapshot(RollbackTime);
-		Elem.Key->RollbackAnimation(RollbackSnapshot);
+}
+
+void URepWorldTimelines::RollbackTarget(IRepMovable* TargetMovable, float CurrentTime, float InterpolationOffset, float RTT)
+{
+	float RollbackTime = CurrentTime - InterpolationOffset - RTT;
+
+	if (MovementTimelines.Contains(TargetMovable)) {
+		RepSnapshot RollbackSnapshot = MovementTimelines[TargetMovable].GetSnapshot(RollbackTime);
+		TargetMovable->RollbackMovement(RollbackSnapshot);
+	}
+	if (AnimationTimelines.Contains(TargetMovable)) {
+		RepAnimationSnapshot RollbackSnapshot = AnimationTimelines[TargetMovable].GetSnapshot(RollbackTime);
+		TargetMovable->RollbackAnimation(RollbackSnapshot);
 	}
 }
 
@@ -72,6 +80,11 @@ void URepWorldTimelines::ResetWorld(IRepMovable* ExcludedMovable)
 {
 	for (IRepMovable* RepObject : RepObjects) {
 		if (RepObject == ExcludedMovable) continue;
-		RepObject->ResetRollback();
+		ResetTarget(RepObject);
 	}
+}
+
+void URepWorldTimelines::ResetTarget(IRepMovable* TargetMovable)
+{
+	TargetMovable->ResetRollback();
 }

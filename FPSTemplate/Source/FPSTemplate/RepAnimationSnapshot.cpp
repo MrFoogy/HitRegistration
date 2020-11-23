@@ -11,6 +11,14 @@ RepAnimationSnapshot::RepAnimationSnapshot(const TMap<physx::PxShape*, physx::Px
 {
 	ShapeTransforms = STransforms;
 }
+	
+RepAnimationSnapshot::RepAnimationSnapshot(const TArray<physx::PxShape*>& Shapes)
+{
+	ShapeTransforms = TMap<PxShape*, PxTransform>();
+	for (PxShape* Shape : Shapes) {
+		ShapeTransforms.Add(Shape, PxTransform());
+	}
+}
 
 RepAnimationSnapshot::~RepAnimationSnapshot()
 {
@@ -34,7 +42,7 @@ RepAnimationSnapshot RepAnimationSnapshot::Interpolate(const RepAnimationSnapsho
 		const physx::PxTransform& StartTransform = StartElem.Value;
 		const physx::PxTransform& EndTransform = End.ShapeTransforms[Shape];
 		physx::PxVec3 PxPosition = ((StartTransform.p * (1.0f - Alpha)) + (EndTransform.p * Alpha));
-		physx::PxQuat PxRotation = U2PQuat(FQuat::FastLerp(P2UQuat(StartTransform.q), P2UQuat(EndTransform.q), Alpha));
+		physx::PxQuat PxRotation = U2PQuat(FQuat::FastLerp(P2UQuat(StartTransform.q), P2UQuat(EndTransform.q), Alpha).GetNormalized());
 		InterpolatedSnapshot.SetShapeTransform(Shape, physx::PxTransform(PxPosition, PxRotation));
 	}
 

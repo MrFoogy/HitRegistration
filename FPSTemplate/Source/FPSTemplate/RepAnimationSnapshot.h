@@ -15,6 +15,7 @@ class FPSTEMPLATE_API RepAnimationSnapshot
 public:
 	RepAnimationSnapshot();
 	RepAnimationSnapshot(const TMap<physx::PxShape*, physx::PxTransform>& STransforms);
+	RepAnimationSnapshot(const TArray<physx::PxShape*>& Shapes);
 	~RepAnimationSnapshot();
 	TMap<physx::PxShape*, physx::PxTransform> ShapeTransforms;
 	void SetShapeTransform(physx::PxShape* Shape, physx::PxTransform Transform);
