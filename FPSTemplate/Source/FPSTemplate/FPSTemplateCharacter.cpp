@@ -241,12 +241,13 @@ void AFPSTemplateCharacter::OnRep_ReplicatedMovement()
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
 	FVector NewLocation = FRepMovement::RebaseOntoLocalOrigin(ReplicatedMovement.Location, this);
 	MovementComponent->OnReceiveServerUpdate(NewLocation, ReplicatedMovement.Rotation.Quaternion(), ReplicatedMovement.LinearVelocity, NetUpdateFrequency);
+	ReplicationCounter++;
 }
 
 void AFPSTemplateCharacter::OnRep_RepViewRotation()
 {
 	RepViewRotationTimeline.AddSnapshotCompensating(RepViewRotationSnapshot(RepViewRotation), GetWorld()->GetTimeSeconds(), 
-		GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset, NetUpdateFrequency);
+		GetInterpolationTime(), NetUpdateFrequency);
 }
 
 FRotator AFPSTemplateCharacter::GetViewRotation()
@@ -255,14 +256,14 @@ FRotator AFPSTemplateCharacter::GetViewRotation()
 		return GetController()->GetControlRotation();
 	}
 	else {
-		return RepViewRotationTimeline.GetSnapshot(GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset).ViewRotation;
+		return RepViewRotationTimeline.GetSnapshot(GetInterpolationTime()).ViewRotation;
 	}
 }
 
 FVector AFPSTemplateCharacter::GetPlayerVelocity()
 {
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
-	if (GetController() != NULL) {
+	if (Role != ROLE_SimulatedProxy) {
 		return MovementComponent->Velocity;
 	}
 	else {
@@ -288,6 +289,7 @@ void AFPSTemplateCharacter::PreReplication(IRepChangedPropertyTracker & ChangedP
 
 		// Update the RepViewRotation member for replication
 		RepViewRotation = GetController()->GetControlRotation();
+		ReplicationCounter++;
 	}
 }
 
@@ -332,10 +334,12 @@ void AFPSTemplateCharacter::Tick(float DeltaSeconds)
 		int EndIndex = FMath::Min(PosesLocal.Num(), PosesRollback.Num()) - 1;
 		if (EndIndex == -1) return;
 		int TargetIndex = EndIndex;
-		for (int i = 0; i <= EndIndex; i++) {
-			if (LocalPoseTimes[i] > DebugShapeDisplayTime) {
-				TargetIndex = i;
-				break;
+		if (DebugShapeDisplayTime > 0.1f) {
+			for (int i = 0; i <= EndIndex; i++) {
+				if (LocalPoseTimes[i] > DebugShapeDisplayTime) {
+					TargetIndex = i;
+					break;
+				}
 			}
 		}
 		int StartIndex = FMath::Max(0, TargetIndex - 1);
@@ -408,33 +412,6 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 		ClientConfirmHit(Target, RollbackPosition, RollbackRotation, ServerPosition, ServerRotation);
 
 	}
-	/*
-	DrawHitboxes(FColor::Purple);
-	FVector SaveLocation = GetActorLocation();
-
-	SetActorLocation(FVector(0.0f, 0.0f, 150.0f), false, (FHitResult* ) nullptr, ETeleportType::TeleportPhysics);
-	TestDisplaceHitboxes();
-
-	// Perform trace to retrieve hit info
-	FCollisionQueryParams TraceParams;
-	TraceParams.bReturnPhysicalMaterial = true;
-	float WeaponRange = 100000.0f;
-	FHitResult Hit(ForceInit);
-	GetWorld()->LineTraceSingleByChannel(Hit, FVector(0.0f, 200.0f, 200.0f), FVector(0.0f, -200.0f, 200.0f), ECC_Visibility, TraceParams);
-	DrawDebugLine(GetWorld(), FVector(0.0f, 200.0f, 200.0f), FVector(0.0f, -200.0f, 200.0f), FColor::Purple, false, 2.0f, 0, 1.f);
-	if (Hit.GetActor() != NULL) {
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, (TEXT("Hit: ???")));
-		AFPSTemplateCharacter* HitPlayer = Cast<AFPSTemplateCharacter>(Hit.GetActor());
-		if (HitPlayer != NULL) {
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, FString::Printf(TEXT("Hit: %s"), *Hit.BoneName.ToString()));
-		}
-	}
-	DrawHitboxes(FColor::Cyan);
-
-	SetPhysicsShapeTransformsLocal(OriginalShapeTransforms);
-	SetActorLocation(SaveLocation, false, (FHitResult* ) nullptr, ETeleportType::TeleportPhysics);
-	DrawHitboxes(FColor::Green);
-	*/
 }
 
 void AFPSTemplateCharacter::ServerRequestAnimState_Implementation(AFPSTemplateCharacter* Target, int Counter)
@@ -620,7 +597,12 @@ void AFPSTemplateCharacter::SetPhysicsShapeTransformsGlobal(TMap<physx::PxShape*
 float AFPSTemplateCharacter::GetPing()
 {
 	// TODO: the multiplication with 4 here is only because the custom PktLag seems to add only 1/2 its RTT to this variable?
-	return GetPlayerState()->Ping * 0.001f /* * 4.0f */;
+	return GetPlayerState()->Ping * 0.001f /* * 4.0f */ + RollbackOffset;
+}
+
+float AFPSTemplateCharacter::GetInterpolationTime()
+{
+	return GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset;
 }
 
 void AFPSTemplateCharacter::SetRollbackTimelineValue(float Value)
@@ -641,4 +623,16 @@ void AFPSTemplateCharacter::SetShouldUpdateTimelineSlider(bool ShouldUpdateSlide
 void AFPSTemplateCharacter::SetShouldInterpolateDebugPoses(bool ShouldInterpolatePoses)
 {
 	ShouldInterpolateDebugPoses = ShouldInterpolatePoses;
+}
+
+void AFPSTemplateCharacter::RollbackDebugOffset(float Offset)
+{
+	ServerSetReplicationOffset(Offset);
+	UE_LOG(LogTemp, Warning, TEXT("Bont rollback offset: %f"), RollbackOffset);
+}
+
+void AFPSTemplateCharacter::ServerSetReplicationOffset_Implementation(float Offset)
+{
+	RollbackOffset = Offset;
+	UE_LOG(LogTemp, Warning, TEXT("Set rollback offset: %f"), RollbackOffset);
 }

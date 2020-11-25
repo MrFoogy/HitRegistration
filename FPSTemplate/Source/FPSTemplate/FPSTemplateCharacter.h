@@ -62,6 +62,7 @@ protected:
 	TArray<RepAnimationSnapshot> PosesRollback;
 	TArray<float> LocalPoseTimes;
 	int AnimSaveCounter = 0;
+	int ReplicationCounter = 0;
 	float LastDebugShapeSendTime = 0.0f;
 	float DebugShapeDisplayTime = 0.0f;
 	class URollbackTimelineWidget* RollbackTimelineWidget;
@@ -69,6 +70,8 @@ protected:
 	bool IsScoping = false;
 	bool ShouldUpdateTimelineSlider = true;
 	bool ShouldInterpolateDebugPoses = false;
+
+	float RollbackOffset = 0.0f;
 
 public:
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
@@ -104,6 +107,9 @@ public:
 
 	UFUNCTION(Exec, Category = ExecFunctions)
 	void StartDebugMovement();
+
+	UFUNCTION(Exec, Category = ExecFunctions)
+	void RollbackDebugOffset(float Offset);
 
 	UFUNCTION(BlueprintCallable)
 	FRotator GetViewRotation();
@@ -187,6 +193,9 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerRequestAnimState(AFPSTemplateCharacter* Target, int Counter);
 
+	UFUNCTION(Server, Reliable)
+	void ServerSetReplicationOffset(float Offset);
+
 	UFUNCTION(Client, Reliable)
 	void ClientConfirmHit(AFPSTemplateCharacter* HitPlayer, FVector RollbackPosition, FQuat RollbackRotation, FVector ServerPosition, FQuat ServerRotation);
 
@@ -212,6 +221,8 @@ public:
 	virtual void ResetRollback() override;
 
 public:
+	virtual float GetInterpolationTime();
+
 	void SetRollbackTimelineValue(float Value);
 	AFPSTemplateCharacter* DebugFindOtherPlayer();
 	void OnOpenRollbackTimelineUI(URollbackTimelineWidget* Widget);

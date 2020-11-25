@@ -13,7 +13,8 @@ void UCustomCharacterMovementComponent::MoveSmooth(const FVector& InVelocity, co
 {
 	//Super::MoveSmooth(InVelocity, DeltaSeconds, OutStepDownResult);
 	//UE_LOG(LogTemp, Warning, TEXT("Rep time move: %f"), GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset);
-	RepSnapshot MovementSnapshot = RepMovementTimeline.GetSnapshot(GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset);
+	float InterpolationTime = GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset;
+	RepSnapshot MovementSnapshot = RepMovementTimeline.GetSnapshot(InterpolationTime);
 	ApplySnapshot(MovementSnapshot);
 }
 
@@ -36,8 +37,9 @@ void UCustomCharacterMovementComponent::OnReceiveServerUpdate(const FVector& New
 	//UpdatedComponent->SetWorldLocationAndRotation(NewLocation, NewRotation, /*bSweep=*/ false);
 	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Server update at: %f"), GetWorld()->GetTimeSeconds()));
 
+	float InterpolationTime = GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset;
 	RepMovementTimeline.AddSnapshotCompensating(RepSnapshot(NewLocation, NewRotation, NewVelocity), GetWorld()->GetTimeSeconds(),
-		GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset, ReplicationFrequency);
+		InterpolationTime, ReplicationFrequency);
 }
 
 void UCustomCharacterMovementComponent::ApplySnapshot(const RepSnapshot& Snapshot)
@@ -48,5 +50,6 @@ void UCustomCharacterMovementComponent::ApplySnapshot(const RepSnapshot& Snapsho
 FVector UCustomCharacterMovementComponent::GetRepVelocity()
 {
 	//UE_LOG(LogTemp, Warning, TEXT("Rep time anim: %f"), GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset);
-	return RepMovementTimeline.GetSnapshot(GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset).Velocity;
+	float InterpolationTime = GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset;
+	return RepMovementTimeline.GetSnapshot(InterpolationTime).Velocity;
 }
