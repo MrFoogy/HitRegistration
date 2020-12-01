@@ -19,8 +19,12 @@ public:
 	~RepAnimationSnapshot();
 	TMap<physx::PxShape*, physx::PxTransform> ShapeTransforms;
 	void SetShapeTransform(physx::PxShape* Shape, physx::PxTransform Transform);
+	bool HasAddedAllTransforms() const;
 
 	TMap<physx::PxShape*, physx::PxTransform>& GetShapeTransforms();
 
 	static RepAnimationSnapshot Interpolate(const RepAnimationSnapshot& Start, const RepAnimationSnapshot& End, float Alpha);
+
+protected:
+	int AddedTransforms;
 };

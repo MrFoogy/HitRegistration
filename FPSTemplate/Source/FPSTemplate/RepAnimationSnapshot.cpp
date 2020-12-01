@@ -5,11 +5,13 @@
 
 RepAnimationSnapshot::RepAnimationSnapshot()
 {
+	AddedTransforms = 0;
 }
 
 RepAnimationSnapshot::RepAnimationSnapshot(const TMap<physx::PxShape*, physx::PxTransform>& STransforms)
 {
 	ShapeTransforms = STransforms;
+	AddedTransforms = 0;
 }
 	
 RepAnimationSnapshot::RepAnimationSnapshot(const TArray<physx::PxShape*>& Shapes)
@@ -18,6 +20,7 @@ RepAnimationSnapshot::RepAnimationSnapshot(const TArray<physx::PxShape*>& Shapes
 	for (PxShape* Shape : Shapes) {
 		ShapeTransforms.Add(Shape, PxTransform());
 	}
+	AddedTransforms = 0;
 }
 
 RepAnimationSnapshot::~RepAnimationSnapshot()
@@ -27,6 +30,7 @@ RepAnimationSnapshot::~RepAnimationSnapshot()
 void RepAnimationSnapshot::SetShapeTransform(physx::PxShape* Shape, physx::PxTransform Transform) 
 {
 	ShapeTransforms.Add(Shape, Transform);
+	AddedTransforms++;
 }
 
 TMap<physx::PxShape*, physx::PxTransform>& RepAnimationSnapshot::GetShapeTransforms()
@@ -47,4 +51,9 @@ RepAnimationSnapshot RepAnimationSnapshot::Interpolate(const RepAnimationSnapsho
 	}
 
 	return InterpolatedSnapshot;
+}
+
+bool RepAnimationSnapshot::HasAddedAllTransforms() const {
+	// Assumes the Map is initialized in the beginning to contain all keys
+	return AddedTransforms == ShapeTransforms.Num();
 }

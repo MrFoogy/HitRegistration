@@ -89,6 +89,8 @@ void AFPSTemplateCharacter::BeginPlay()
 		IDMap.Add(PxShape, ID);
 	};
 	PerformPhysicsShapeOperation(ShapeFunction);
+
+	RollbackLogger.CreateLogFile();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -152,7 +154,7 @@ void AFPSTemplateCharacter::OnFire()
 		}
 	}
 	*/
-
+	
 	// try and play the sound if specified
 	if (FireSound != NULL)
 	{
@@ -443,8 +445,12 @@ void AFPSTemplateCharacter::OnReceiveRollbackShape(int Counter, int ShapeID,
 		PosesRollback.Add(RepAnimationSnapshot(AllShapes));
 	}
 	PxTransform Transform = PxTransform(U2PVector(Position), U2PQuat(Rotation));
-	PosesRollback[Counter].GetShapeTransforms()[AllShapes[ShapeID]] = Transform;
+	PosesRollback[Counter].SetShapeTransform(AllShapes[ShapeID], Transform);
 
+	if (PosesRollback[Counter].HasAddedAllTransforms()) {
+		RollbackLogger.LogDiscrepancy(LocalPoseTimes[Counter], &PosesLocal[Counter], &PosesRollback[Counter]);
+		UE_LOG(LogTemp, Warning, TEXT("Actor: %s"), *GetName());
+	}
 }
 
 void AFPSTemplateCharacter::ClientConfirmHit_Implementation(AFPSTemplateCharacter* HitPlayer, FVector RollbackPosition, 
@@ -635,4 +641,9 @@ void AFPSTemplateCharacter::ServerSetReplicationOffset_Implementation(float Offs
 {
 	RollbackOffset = Offset;
 	UE_LOG(LogTemp, Warning, TEXT("Set rollback offset: %f"), RollbackOffset);
+}
+
+void AFPSTemplateCharacter::SaveRollbackLog()
+{
+	DebugFindOtherPlayer()->RollbackLogger.DumpLogFile();
 }

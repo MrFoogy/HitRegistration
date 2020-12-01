@@ -15,6 +15,7 @@
 #include "RepSnapshot.h"
 #include "RepAnimationSnapshot.h"
 #include "RollbackTimelineWidget.h"
+#include "RollbackLogger.h"
 #include "DebugUtil.h"
 #include "PhysXIncludes.h"
 #include "PhysicsPublic.h"	
@@ -66,12 +67,13 @@ protected:
 	float LastDebugShapeSendTime = 0.0f;
 	float DebugShapeDisplayTime = 0.0f;
 	class URollbackTimelineWidget* RollbackTimelineWidget;
+	FRollbackLogger RollbackLogger;
 
 	bool IsScoping = false;
 	bool ShouldUpdateTimelineSlider = true;
 	bool ShouldInterpolateDebugPoses = false;
 
-	float RollbackOffset = 0.0f;
+	float RollbackOffset = -0.035f;
 
 public:
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
@@ -107,6 +109,9 @@ public:
 
 	UFUNCTION(Exec, Category = ExecFunctions)
 	void StartDebugMovement();
+
+	UFUNCTION(Exec, Category = ExecFunctions)
+	void SaveRollbackLog();
 
 	UFUNCTION(Exec, Category = ExecFunctions)
 	void RollbackDebugOffset(float Offset);
