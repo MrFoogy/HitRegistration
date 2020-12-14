@@ -30,7 +30,7 @@ def plot_data(ax, data, title, x_label, y_label, y_range):
     ax.set_title(title)
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
-    ax.set_ylim(y_range[0], y_range[1])
+    #ax.set_ylim(y_range[0], y_range[1])
     ax.plot(data[0], data[1])
 
 def get_latest_filenames(num):

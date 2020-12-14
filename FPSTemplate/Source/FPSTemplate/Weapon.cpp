@@ -41,7 +41,7 @@ FHitResult AWeapon::TraceShot(const FVector& TraceOrigin, const FVector& TraceDi
 	//FCollisionQueryParams TraceParams(SCENE_QUERY_STAT(WeaponTrace), true, Instigator);
 	FCollisionQueryParams TraceParams;
 	TraceParams.bReturnPhysicalMaterial = true;
-	TraceParams.AddIgnoredActor(Instigator);
+	TraceParams.AddIgnoredActor(GetInstigator());
 
 	float WeaponRange = 100000.0f;
 
@@ -55,7 +55,7 @@ FHitResult AWeapon::TraceShot(const FVector& TraceOrigin, const FVector& TraceDi
 
 void AWeapon::SetOwnerCharacter(APawn* NewOwner)
 {
-	Instigator = NewOwner;
+	SetInstigator(NewOwner);
 	// net owner for RPC calls
 	//SetOwner(NewOwner);
 }

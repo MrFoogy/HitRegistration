@@ -30,7 +30,7 @@ AFPSTemplateCharacter::AFPSTemplateCharacter(const FObjectInitializer& ObjectIni
 	// Create a CameraComponent	
 	FirstPersonCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
 	FirstPersonCameraComponent->SetupAttachment(GetCapsuleComponent());
-	FirstPersonCameraComponent->RelativeLocation = FVector(-39.56f, 1.75f, 64.f); // Position the camera
+	FirstPersonCameraComponent->SetRelativeLocation(FVector(-39.56f, 1.75f, 64.f)); // Position the camera
 	FirstPersonCameraComponent->bUsePawnControlRotation = true;
 
 	// Operations on the third-person mesh
@@ -43,8 +43,8 @@ AFPSTemplateCharacter::AFPSTemplateCharacter(const FObjectInitializer& ObjectIni
 	Mesh1P->SetupAttachment(FirstPersonCameraComponent);
 	Mesh1P->bCastDynamicShadow = false;
 	Mesh1P->CastShadow = false;
-	Mesh1P->RelativeRotation = FRotator(1.9f, -19.19f, 5.2f);
-	Mesh1P->RelativeLocation = FVector(-0.5f, -4.4f, -155.7f);
+	Mesh1P->SetRelativeRotation(FRotator(1.9f, -19.19f, 5.2f));
+	Mesh1P->SetRelativeLocation(FVector(-0.5f, -4.4f, -155.7f));
 
 	// Default offset from the character location for projectiles to spawn
 	GunOffset = FVector(100.0f, 0.0f, 10.0f);
@@ -241,8 +241,8 @@ void AFPSTemplateCharacter::OnRep_ReplicatedMovement()
 	// TODO: by overriding this, the movement state / animation systems don't seem to work properly
 	//UE_LOG(LogTemp, Warning, TEXT("Receive at: %f"), GetWorld()->GetTimeSeconds());
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
-	FVector NewLocation = FRepMovement::RebaseOntoLocalOrigin(ReplicatedMovement.Location, this);
-	MovementComponent->OnReceiveServerUpdate(NewLocation, ReplicatedMovement.Rotation.Quaternion(), ReplicatedMovement.LinearVelocity, NetUpdateFrequency);
+	FVector NewLocation = FRepMovement::RebaseOntoLocalOrigin(GetReplicatedMovement().Location, this);
+	MovementComponent->OnReceiveServerUpdate(NewLocation, GetReplicatedMovement().Rotation.Quaternion(), GetReplicatedMovement().LinearVelocity, NetUpdateFrequency);
 	ReplicationCounter++;
 }
 
@@ -265,7 +265,7 @@ FRotator AFPSTemplateCharacter::GetViewRotation()
 FVector AFPSTemplateCharacter::GetPlayerVelocity()
 {
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
-	if (Role != ROLE_SimulatedProxy) {
+	if (GetLocalRole() != ROLE_SimulatedProxy) {
 		return MovementComponent->Velocity;
 	}
 	else {
@@ -276,7 +276,7 @@ FVector AFPSTemplateCharacter::GetPlayerVelocity()
 void AFPSTemplateCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
 	Super::PreReplication(ChangedPropertyTracker);
-	if (Role == ROLE_Authority)
+	if (GetLocalRole() == ROLE_Authority)
 	{
 		// Add a movement snapshot
 		AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *) GetWorld()->GetAuthGameMode();
@@ -285,8 +285,8 @@ void AFPSTemplateCharacter::PreReplication(IRepChangedPropertyTracker & ChangedP
 			RepTimeline<RepSnapshot>& Timeline = GameMode->GetRepMovementTimeline((IRepMovable*) this);
 			// After Super::PreReplication has been called, ReplicatedMovement should be updated
 			//UE_LOG(LogTemp, Warning, TEXT("Server add at: %f"), GetWorld()->GetTimeSeconds());
-			Timeline.AddSnapshot(RepSnapshot(ReplicatedMovement.Location, ReplicatedMovement.Rotation.Quaternion(), 
-				ReplicatedMovement.LinearVelocity), GetWorld()->GetTimeSeconds());
+			Timeline.AddSnapshot(RepSnapshot(GetReplicatedMovement().Location, GetReplicatedMovement().Rotation.Quaternion(), 
+				GetReplicatedMovement().LinearVelocity), GetWorld()->GetTimeSeconds());
 		}
 
 		// Update the RepViewRotation member for replication
@@ -309,7 +309,7 @@ void AFPSTemplateCharacter::Tick(float DeltaSeconds)
 		SavePhysicsShapeTransformsGlobal(ShapeTransforms);
 		AnimationTimeline.AddSnapshot(RepAnimationSnapshot(ShapeTransforms), GetWorld()->GetTimeSeconds());
 	}
-	if (Role == ROLE_AutonomousProxy) {
+	if (GetLocalRole() == ROLE_AutonomousProxy) {
 		// Find the other players
 		if (IsScoping) {
 			AFPSTemplateCharacter* TargetCharacter = DebugFindOtherPlayer();
@@ -326,7 +326,7 @@ void AFPSTemplateCharacter::Tick(float DeltaSeconds)
 			LastDebugShapeSendTime = GetWorld()->GetTimeSeconds();
 		}
 	}
-	if (Role == ROLE_SimulatedProxy) {
+	if (GetLocalRole() == ROLE_SimulatedProxy) {
 		if (RollbackTimelineWidget != NULL && ShouldUpdateTimelineSlider) {
 			float MaxTimeDiff = LocalPoseTimes[PosesRollback.Num() - 1] - LocalPoseTimes[0];
 			RollbackTimelineWidget->SetSliderMaxValue(MaxTimeDiff);
