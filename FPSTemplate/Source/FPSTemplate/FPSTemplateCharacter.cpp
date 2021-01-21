@@ -49,6 +49,7 @@ AFPSTemplateCharacter::AFPSTemplateCharacter(const FObjectInitializer& ObjectIni
 	// Default offset from the character location for projectiles to spawn
 	GunOffset = FVector(100.0f, 0.0f, 10.0f);
 
+	UE_LOG(LogGauntlet, Display, TEXT("Setup player!"));
 	IsUsingDebugMovement = false;
 
 	// Note: The ProjectileClass and the skeletal mesh/anim blueprints for Mesh1P, FP_Gun, and VR_Gun 
@@ -89,8 +90,6 @@ void AFPSTemplateCharacter::BeginPlay()
 		IDMap.Add(PxShape, ID);
 	};
 	PerformPhysicsShapeOperation(ShapeFunction);
-
-	RollbackLogger.CreateLogFile();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -317,7 +316,7 @@ void AFPSTemplateCharacter::Tick(float DeltaSeconds)
 			GetController()->SetControlRotation(Rot);
 		}
 		//GetWorld()->GetGameState()->PlayerArray[0]->GetPawn<AFPSTemplateCharacter>();
-		if (GetWorld()->GetTimeSeconds() - LastDebugShapeSendTime > 0.12f) {
+		if (GetWorld()->GetTimeSeconds() - LastDebugShapeSendTime > 0.15f && DebugIsMonitoring) {
 			AFPSTemplateCharacter* OtherPlayer = DebugFindOtherPlayer();
 			if (OtherPlayer != NULL) {
 				ServerRequestAnimState(OtherPlayer, OtherPlayer->AnimSaveCounter);
@@ -388,13 +387,21 @@ AFPSTemplateCharacter* AFPSTemplateCharacter::DebugFindOtherPlayer()
 
 void AFPSTemplateCharacter::StartDebugMovement()
 {
+    UE_LOG(LogGauntlet, Display, TEXT("Start debug movement"));
 	if (HasLocalNetOwner()) {
+		UE_LOG(LogGauntlet, Display, TEXT("Is using debug movement!"));
+		DebugMovementStartTime = GetWorld()->GetTimeSeconds();
 		IsUsingDebugMovement = true;
+	}
+	else {
+		UE_LOG(LogGauntlet, Display, TEXT("NO LOCAL NET OWNER!"));
 	}
 }
 
 void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Target)
 {
+	return;
+	/*
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Fire!"));
 	AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *)GetWorld()->GetAuthGameMode();
 	if (GameMode != NULL) {
@@ -414,6 +421,7 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 		ClientConfirmHit(Target, RollbackPosition, RollbackRotation, ServerPosition, ServerRotation);
 
 	}
+	*/
 }
 
 void AFPSTemplateCharacter::ServerRequestAnimState_Implementation(AFPSTemplateCharacter* Target, int Counter)
@@ -645,5 +653,30 @@ void AFPSTemplateCharacter::ServerSetReplicationOffset_Implementation(float Offs
 
 void AFPSTemplateCharacter::SaveRollbackLog()
 {
-	DebugFindOtherPlayer()->RollbackLogger.DumpLogFile();
+	RollbackLogger.DumpLogFile();
+}
+
+void AFPSTemplateCharacter::DebugPrepareMonitoredTest()
+{
+	// Player starts are randomly assigned, so for consistency, set the start position
+	ServerSetInitialTransform(FVector(-103.0f, 100.0f, 262.0f), FRotationMatrix::MakeFromX(FVector(1.0f, 0.0f, 0.0f)).ToQuat());
+}
+
+void AFPSTemplateCharacter::DebugPrepareMonitoringTest()
+{
+	// Player starts are randomly assigned, so for consistency, set the start position
+	ServerSetInitialTransform(FVector(326.0f, 100.0f, 262.0f), FRotationMatrix::MakeFromX(FVector(1.0f, 0.0f, 0.0f)).ToQuat());
+}
+
+void AFPSTemplateCharacter::DebugStartMonitoring()
+{
+	DebugIsMonitoring = true;
+	LastDebugShapeSendTime = GetWorld()->GetTimeSeconds();
+	IsScoping = true;
+	DebugFindOtherPlayer()->RollbackLogger.CreateLogFile();
+}
+
+void AFPSTemplateCharacter::ServerSetInitialTransform_Implementation(FVector Position, FQuat Rotation)
+{
+	TeleportTo(Position, Rotation.Rotator());
 }

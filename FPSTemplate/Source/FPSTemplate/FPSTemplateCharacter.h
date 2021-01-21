@@ -20,6 +20,7 @@
 #include "PhysXIncludes.h"
 #include "PhysicsPublic.h"	
 #include "Runtime/Engine/Private/PhysicsEngine/PhysXSupport.h"
+#include "GauntletModule.h"
 #include "FPSTemplateCharacter.generated.h"
 
 class UInputComponent;
@@ -64,6 +65,7 @@ protected:
 	TArray<float> LocalPoseTimes;
 	int AnimSaveCounter = 0;
 	int ReplicationCounter = 0;
+	bool DebugIsMonitoring = false;
 	float LastDebugShapeSendTime = 0.0f;
 	float DebugShapeDisplayTime = 0.0f;
 	class URollbackTimelineWidget* RollbackTimelineWidget;
@@ -153,6 +155,7 @@ protected:
 	void TestDisplaceHitboxes();
 
 	bool IsUsingDebugMovement = false;
+	float DebugMovementStartTime;
 
 	void SavePhysicsShapeTransformsLocal(TMap<physx::PxShape*, physx::PxTransform>& OutTransforms);
 
@@ -201,6 +204,9 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerSetReplicationOffset(float Offset);
 
+	UFUNCTION(Server, Reliable)
+	void ServerSetInitialTransform(FVector Position, FQuat Rotation);
+
 	UFUNCTION(Client, Reliable)
 	void ClientConfirmHit(AFPSTemplateCharacter* HitPlayer, FVector RollbackPosition, FQuat RollbackRotation, FVector ServerPosition, FQuat ServerRotation);
 
@@ -228,6 +234,9 @@ public:
 public:
 	virtual float GetInterpolationTime();
 
+	void DebugPrepareMonitoredTest();
+	void DebugPrepareMonitoringTest();
+	void DebugStartMonitoring();
 	void SetRollbackTimelineValue(float Value);
 	AFPSTemplateCharacter* DebugFindOtherPlayer();
 	void OnOpenRollbackTimelineUI(URollbackTimelineWidget* Widget);

@@ -21,7 +21,8 @@ FRollbackLogger::~FRollbackLogger()
 void FRollbackLogger::CreateLogFile() {
 	FDateTime DateTime = FDateTime::Now();
 	FString TimeString = DateTime.ToString();
-	FilePath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()) + FString::Printf(TEXT("/DebugLogs/%s-Log.txt"), *TimeString);
+	//FilePath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()) + FString::Printf(TEXT("/DebugLogs/%s-Log.txt"), *TimeString);
+	FilePath = FString::Printf(TEXT("D:/Exjobb-Jonathan/HitRegistration/FPSTemplate/DebugLogs/%s-Log.txt"), *TimeString);
 }
 
 void FRollbackLogger::WriteString(FString Str) {

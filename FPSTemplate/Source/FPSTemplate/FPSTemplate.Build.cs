@@ -8,6 +8,7 @@ public class FPSTemplate : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
+		PrivateDependencyModuleNames.AddRange(new string[] { "Gauntlet" });
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "PhysX", "APEX" });
 	}
 }
