@@ -185,7 +185,6 @@ void AFPSTemplateCharacter::OnFire()
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Hit: %s"), *Hit.BoneName.ToString()));
 			DrawDebugBox(GetWorld(), HitPlayer->GetActorLocation(), FVector(60.0f, 30.0f, 45.0f), HitPlayer->GetActorQuat(), FColor::Orange, false, 5.0f);
 			HitPlayer->DrawHitboxes(FColor::Orange);
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Ping at client: %f"), GetPing()));
 			ServerFire(HitPlayer);
 		}
 	}
@@ -299,7 +298,7 @@ void AFPSTemplateCharacter::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	if (IsUsingDebugMovement)
 	{
-		MoveRight(FMath::Sin(GetWorld()->GetTimeSeconds()));
+		MoveForward(FMath::Sin(GetWorld()->GetTimeSeconds()));
 	}
 	AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *)GetWorld()->GetAuthGameMode();
 	if (GameMode != NULL) {
@@ -319,6 +318,7 @@ void AFPSTemplateCharacter::Tick(float DeltaSeconds)
 		if (GetWorld()->GetTimeSeconds() - LastDebugShapeSendTime > 0.15f && DebugIsMonitoring) {
 			AFPSTemplateCharacter* OtherPlayer = DebugFindOtherPlayer();
 			if (OtherPlayer != NULL) {
+				//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Ping at client: %f"), GetPingRaw()));
 				ServerRequestAnimState(OtherPlayer, OtherPlayer->AnimSaveCounter);
 				OtherPlayer->SaveLocalShapeForDebug();
 			} 
@@ -456,7 +456,9 @@ void AFPSTemplateCharacter::OnReceiveRollbackShape(int Counter, int ShapeID,
 	PosesRollback[Counter].SetShapeTransform(AllShapes[ShapeID], Transform);
 
 	if (PosesRollback[Counter].HasAddedAllTransforms()) {
-		RollbackLogger.LogDiscrepancy(LocalPoseTimes[Counter], &PosesLocal[Counter], &PosesRollback[Counter]);
+		float HitRate = CalculateRandomHitRate(PosesRollback[Counter]);
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Hit rate: %f"), HitRate));
+		RollbackLogger.LogDiscrepancy(LocalPoseTimes[Counter], HitRate, &PosesLocal[Counter], &PosesRollback[Counter]);
 		UE_LOG(LogTemp, Warning, TEXT("Actor: %s"), *GetName());
 	}
 }
@@ -527,14 +529,17 @@ void AFPSTemplateCharacter::PerformPhysicsShapeOperation(F Function)
 	PxScene* Scene = GetWorld()->GetPhysicsScene()->GetPxScene();
 	TArray<FPhysicsShapeHandle> collisionShapes;
 	Scene->lockRead();
+	// First gain access to at least one of the physics shapes
 	int32 numSyncShapes = PhysicsBody->GetAllShapes_AssumesLocked(collisionShapes);
 	Scene->unlockRead();
-	int NumActors = collisionShapes[0].Shape->getActor()->getAggregate()->getNbActors();
 
+	// Use one of the shapes to find all PxActors
+	int NumActors = collisionShapes[0].Shape->getActor()->getAggregate()->getNbActors();
 	physx::PxActor** PxActors = new physx::PxActor*[NumActors];
 	physx::PxShape* PxShapes[10];
-
 	int FoundActors = collisionShapes[0].Shape->getActor()->getAggregate()->getActors(PxActors, NumActors);
+
+	// For each PxActor, find all its shapes and execute the input function
 	int Index = 0;
 	for (int i = 0; i < FoundActors; i++) {
 		physx::PxRigidActor* RigidActor = (physx::PxRigidActor*) PxActors[i];
@@ -611,7 +616,12 @@ void AFPSTemplateCharacter::SetPhysicsShapeTransformsGlobal(TMap<physx::PxShape*
 float AFPSTemplateCharacter::GetPing()
 {
 	// TODO: the multiplication with 4 here is only because the custom PktLag seems to add only 1/2 its RTT to this variable?
-	return GetPlayerState()->Ping * 0.001f /* * 4.0f */ + RollbackOffset;
+	return GetPlayerState()->Ping * 0.001f * 4.0f  + RollbackOffset;
+}
+
+float AFPSTemplateCharacter::GetPingRaw()
+{
+	return GetPlayerState()->Ping;
 }
 
 float AFPSTemplateCharacter::GetInterpolationTime()
@@ -659,13 +669,13 @@ void AFPSTemplateCharacter::SaveRollbackLog()
 void AFPSTemplateCharacter::DebugPrepareMonitoredTest()
 {
 	// Player starts are randomly assigned, so for consistency, set the start position
-	ServerSetInitialTransform(FVector(-103.0f, 100.0f, 262.0f), FRotationMatrix::MakeFromX(FVector(1.0f, 0.0f, 0.0f)).ToQuat());
+	ServerSetInitialTransform(FVector(-300.0f, 100.0f, 262.0f), FVector(1.0f, 0.0f, 0.0f).ToOrientationQuat());
 }
 
 void AFPSTemplateCharacter::DebugPrepareMonitoringTest()
 {
 	// Player starts are randomly assigned, so for consistency, set the start position
-	ServerSetInitialTransform(FVector(326.0f, 100.0f, 262.0f), FRotationMatrix::MakeFromX(FVector(1.0f, 0.0f, 0.0f)).ToQuat());
+	ServerSetInitialTransform(FVector(0.0f, -300.0f, 262.0f), FRotationMatrix::MakeFromX(FVector(1.0f, 0.0f, 0.0f)).ToQuat());
 }
 
 void AFPSTemplateCharacter::DebugStartMonitoring()
@@ -679,4 +689,105 @@ void AFPSTemplateCharacter::DebugStartMonitoring()
 void AFPSTemplateCharacter::ServerSetInitialTransform_Implementation(FVector Position, FQuat Rotation)
 {
 	TeleportTo(Position, Rotation.Rotator());
+}
+
+FVector AFPSTemplateCharacter::GetRandomPointInBoundingBox() 
+{
+	float BoxHalfHeight = 100.0f;
+	float BoxHalfWidth = 50.0f;
+	FVector LocalUnrotated = UKismetMathLibrary::RandomPointInBoundingBox(FVector::ZeroVector, FVector(BoxHalfWidth, BoxHalfWidth, BoxHalfHeight));
+	FVector Rotated = GetActorQuat().RotateVector(LocalUnrotated);
+	FVector Res = GetActorLocation() + Rotated;
+	//DrawDebugPoint(GetWorld(), Res, 5.0f, FColor::Purple, false, 0.5f);
+	return Res;
+}
+
+void AFPSTemplateCharacter::GenerateRandomBoundingBoxPositions()
+{
+	RandomBoundingBoxPositions.Empty();
+	for (int i = 0; i < NUM_RANDOM_HIT_TESTS; i++) {
+		RandomBoundingBoxPositions.Add(GetRandomPointInBoundingBox());
+	}
+}
+
+FRay AFPSTemplateCharacter::GetRandomCollisionTestRay(int RandomPointIndex)
+{
+	float Dist = 300.0f;
+	FVector PassThroughPoint = RandomBoundingBoxPositions[RandomPointIndex];
+	FVector Start = GetActorRightVector() * Dist + PassThroughPoint;
+	//DrawDebugLine(GetWorld(), Start, Start - (GetActorRightVector() * Dist * 2.0f), FColor::Purple, false, 0.5f);
+	//DrawDebugPoint(GetWorld(), Start, 10.0f, FColor::Blue, false, 0.5f);
+	return FRay(Start, -GetActorRightVector());
+}
+
+bool AFPSTemplateCharacter::TestHitFromRay(const FRay& Ray)
+{
+	float Dist = 300.0f;
+	FCollisionQueryParams TraceParams;
+	TraceParams.bReturnPhysicalMaterial = true;
+
+	FHitResult Hit(ForceInit);
+	Hit.bBlockingHit = true;
+	PxScene* PScene = GetWorld()->GetPhysicsScene()->GetPxScene();
+	
+	// Make a loop to be able to detect multiple blocking objects
+	while (Hit.Actor != this && Hit.bBlockingHit == true) {
+		if (GetWorld()->LineTraceSingleByChannel(Hit, Ray.Origin, Ray.Origin + Ray.Direction * Dist * 2.f, ECC_Visibility, TraceParams)) {
+			TraceParams.AddIgnoredActor(Hit.Actor.Get());
+			if (Hit.Actor != this) continue;
+			return true;
+			/*
+			FBodyInstance* HitBodyInstance = Hit.Component->GetBodyInstance(Hit.BoneName);
+			TArray<FPhysicsShapeHandle> collisionShapes;
+			PScene->lockRead();
+			int32 numSyncShapes = HitBodyInstance->GetAllShapes_AssumesLocked(collisionShapes);
+			PScene->unlockRead();
+			for (int i = 0; i < numSyncShapes; i++) {
+				if (AllShapes.Contains(collisionShapes[i].Shape)) {
+					IsHit = true;
+				}
+			}
+			if (IsHit) {
+				break;
+			}
+			*/
+		}
+	}
+	return false;
+}
+
+float AFPSTemplateCharacter::CalculateRandomHitRate(RepAnimationSnapshot& RollbackSnapshot)
+{
+	int Matches = 0;
+	int LocalHits = 0;
+	RandomHitTestResults.Empty();
+	GenerateRandomBoundingBoxPositions();
+
+	// First, test without rollback, store the intermediate results
+	for (int i = 0; i < NUM_RANDOM_HIT_TESTS; i++) {
+		FRay Ray = GetRandomCollisionTestRay(i);
+		RandomHitTestResults.Add(TestHitFromRay(Ray));
+		if (RandomHitTestResults[i]) {
+			LocalHits++;
+		}
+	}
+
+	TMap<physx::PxShape*, physx::PxTransform> ShapeTransforms;
+	SavePhysicsShapeTransformsGlobal(ShapeTransforms);
+	RepAnimationSnapshot OriginalSnapshot(ShapeTransforms);
+
+	ApplyAnimationSnapshot(RollbackSnapshot);
+
+	for (int i = 0; i < NUM_RANDOM_HIT_TESTS; i++) {
+		// Right now, do not test for false negatives
+		if (!RandomHitTestResults[i]) continue;
+		FRay Ray = GetRandomCollisionTestRay(i);
+		if (TestHitFromRay(Ray)) {
+			Matches++;
+		}
+	}
+
+	ApplyAnimationSnapshot(OriginalSnapshot);
+
+	return (float) Matches / LocalHits;
 }

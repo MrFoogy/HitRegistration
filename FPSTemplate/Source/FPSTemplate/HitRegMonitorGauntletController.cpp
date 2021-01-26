@@ -4,6 +4,7 @@
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "TimerManager.h"
 #include "Async/Async.h"
+#include "GameFramework/GameUserSettings.h"
 
 void UHitRegMonitorGauntletController::OnInit()
 {
@@ -27,6 +28,17 @@ void UHitRegMonitorGauntletController::StartTesting()
     Character->DebugStartMonitoring();
     FTimerHandle dummy;
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMonitorGauntletController::RecordResults, TestDuration, false);
+    /*
+    UGameUserSettings* GameUserSettings = GEngine->GetGameUserSettings();
+    if (GameUserSettings) {
+        GameUserSettings->SetFrameRateLimit(10.f);
+        GameUserSettings->ConfirmVideoMode();
+        UE_LOG(LogGauntlet, Display, TEXT("SET FPS!"));
+    }
+    else {
+        UE_LOG(LogGauntlet, Display, TEXT("DON'T SET FPS!"));
+    }
+    */
 }
 
 void UHitRegMonitorGauntletController::OnTick(float DeltaTime)

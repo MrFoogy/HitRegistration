@@ -36,9 +36,10 @@ void FRollbackLogger::DumpLogFile()
 	WriteString(LogString);
 }
 
-void FRollbackLogger::LogDiscrepancy(float Time, RepAnimationSnapshot* LocalSnapshot, RepAnimationSnapshot* RollbackSnapshot)
+void FRollbackLogger::LogDiscrepancy(float Time, float RandomHitPrecision, RepAnimationSnapshot* LocalSnapshot, RepAnimationSnapshot* RollbackSnapshot)
 {
 	LogString += FString::Printf(TEXT("Time: %f\n"), Time);
+	LogString += FString::Printf(TEXT("Precision: %f\n"), RandomHitPrecision);
 	for (auto KV : LocalSnapshot->GetShapeTransforms()) {
 		physx::PxShape* Shape = KV.Key;
 		physx::PxTransform LocalTransform = LocalSnapshot->GetShapeTransforms()[Shape];

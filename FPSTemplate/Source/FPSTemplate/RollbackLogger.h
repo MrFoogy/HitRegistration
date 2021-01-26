@@ -16,7 +16,7 @@ public:
 
 	void CreateLogFile();
 	void WriteString(FString Str);
-	void LogDiscrepancy(float Time, RepAnimationSnapshot* LocalSnapshot, RepAnimationSnapshot* RollbackSnapshot);
+	void LogDiscrepancy(float Time, float RandomHitPrecision, RepAnimationSnapshot* LocalSnapshot, RepAnimationSnapshot* RollbackSnapshot);
 	void DumpLogFile();
 
 protected:

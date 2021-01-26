@@ -18,7 +18,7 @@ private:
 	bool Initialized = false;
 
 	// Time to wait after game start before doing anything.
-	const float SpinUpTime = 1.f;
+	const float SpinUpTime = 2.f;
 
 	const float PrepareTime = 1.5f;
 

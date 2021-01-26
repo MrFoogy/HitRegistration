@@ -18,7 +18,7 @@ private:
 	bool Initialized = false;
 
 	// Time to run the profiler for.
-	const float TestDuration = 13.5f;
+	const float TestDuration = 14.5f;
 
 	UFUNCTION()
 	void StartTesting();

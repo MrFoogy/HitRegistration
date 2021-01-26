@@ -14,6 +14,6 @@
  set CONFIG=Development
  
  rem ********************* Start Gauntlet Test *********************
- %UAT_PATH% %TEST_CMD% -project=%PRJ_NAME% -platform=%PLATFORM% -configuration=%CONFIG% -test=%TEST_NAME% -build=%STAGING_DIR% 
+ %UAT_PATH% %TEST_CMD% -project=%PRJ_NAME% -platform=%PLATFORM% -configuration=%CONFIG% -test=%TEST_NAME% -build=%STAGING_DIR% -%TEST_NAME%Latency=%1
  rem ********************* End   Gauntlet Test *********************
  pause

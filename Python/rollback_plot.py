@@ -67,7 +67,7 @@ if __name__ == "__main__":
         file_names = sys.argv[1:]
         
 
-    fig, ax = plt.subplots(2)
+    fig, ax = plt.subplots(3)
     for file_name in file_names:
         f = open(file_name)
         text_data = f.read()
@@ -80,6 +80,9 @@ if __name__ == "__main__":
 
         distance_data = parse_data_for_stat(time_data, "Distance: ")
         plot_data(ax[1], distance_data, "Average rollback position discrepancy", "Time (s)", "Distance (cm)", (0, 50))
+
+        distance_data = parse_data_for_stat(time_data, "Precision: ")
+        plot_data(ax[2], distance_data, "Random Hit Precision", "Time (s)", "Precision", (0, 1))
     #print(time_data)
     plt.show()
 

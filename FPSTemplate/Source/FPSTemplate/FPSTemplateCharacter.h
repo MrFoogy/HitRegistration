@@ -77,6 +77,15 @@ protected:
 
 	float RollbackOffset = -0.035f;
 
+	const int NUM_RANDOM_HIT_TESTS = 300;
+	TArray<FVector> RandomBoundingBoxPositions;
+	TArray<bool> RandomHitTestResults;
+	void GenerateRandomBoundingBoxPositions();
+	FVector GetRandomPointInBoundingBox();
+	FRay GetRandomCollisionTestRay(int RandomPointIndex);
+	float CalculateRandomHitRate(RepAnimationSnapshot& RollbackSnapshot);
+	bool TestHitFromRay(const FRay& Ray);
+
 public:
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
@@ -182,6 +191,7 @@ protected:
 	virtual void DisplayShapeTransform(int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type);
 
 	virtual float GetPing();
+	virtual float GetPingRaw();
 
 protected:
 	// APawn interface
@@ -236,6 +246,7 @@ public:
 
 	void DebugPrepareMonitoredTest();
 	void DebugPrepareMonitoringTest();
+	UFUNCTION(Exec, Category = ExecFunctions)
 	void DebugStartMonitoring();
 	void SetRollbackTimelineValue(float Value);
 	AFPSTemplateCharacter* DebugFindOtherPlayer();
