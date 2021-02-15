@@ -185,7 +185,7 @@ void AFPSTemplateCharacter::OnFire()
 		if (HitPlayer != NULL) {
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Hit: %s"), *Hit.BoneName.ToString()));
 			DrawDebugBox(GetWorld(), HitPlayer->GetActorLocation(), FVector(60.0f, 30.0f, 45.0f), HitPlayer->GetActorQuat(), FColor::Orange, false, 5.0f);
-			HitPlayer->ShapeManager->DrawHitboxes(FColor::Orange);
+			HitPlayer->ShapeManager->DrawHitboxes(FColor::Orange, 5.0f);
 			ServerFire(HitPlayer);
 		}
 	}

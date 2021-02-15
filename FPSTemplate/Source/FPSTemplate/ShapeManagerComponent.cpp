@@ -74,12 +74,24 @@ void UShapeManagerComponent::PerformPhysicsShapeOperation(F Function)
 	delete[] PxActors;
 }
 
-void UShapeManagerComponent::DrawHitboxes(const FColor& Color) 
+void UShapeManagerComponent::DrawHitboxes(const FColor& Color, float LifeTime) 
 {
 	auto World = GetWorld();
-	auto ShapeFunction = [Color, World](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
+	auto ShapeFunction = [Color, LifeTime, World](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
 	{
-		DebugUtil::DrawPxShape(World, PxActor, PxShape, Color, 5.0f);
+		DebugUtil::DrawPxShape(World, PxActor, PxShape, Color, LifeTime);
+	};
+	PerformPhysicsShapeOperation(ShapeFunction);
+}
+
+void UShapeManagerComponent::TransformAllHitboxes(FTransform Transform)
+{
+	auto ShapeFunction = [Transform](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
+	{
+		physx::PxTransform ActorGlobalPose = PxActor->getGlobalPose();
+		physx::PxTransform ShapeGlobalPose = ActorGlobalPose * PxShape->getLocalPose();
+		physx::PxTransform DesiredGlobalTransform = U2PTransform(Transform) * ShapeGlobalPose;
+		PxShape->setLocalPose(physx::PxTransform(ActorGlobalPose.getInverse() * DesiredGlobalTransform));
 	};
 	PerformPhysicsShapeOperation(ShapeFunction);
 }

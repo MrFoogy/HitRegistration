@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "CollisionTestActor.generated.h"
 
+class UShapeManagerComponent;
+
 UCLASS()
 class FPSTEMPLATE_API ACollisionTestActor : public AActor
 {
@@ -13,6 +15,9 @@ class FPSTEMPLATE_API ACollisionTestActor : public AActor
 
 	UPROPERTY(VisibleDefaultsOnly, Category=Mesh)
 	class USkeletalMeshComponent* TestMesh;
+
+	UPROPERTY(VisibleAnywhere, Category = "HitReg")
+	class UShapeManagerComponent* ShapeManager;
 	
 public:	
 	ACollisionTestActor(const FObjectInitializer& ObjectInitializer);
@@ -25,4 +30,6 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	
+	void PerformTriggerTest();
 };

@@ -32,7 +32,7 @@ public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	void DrawHitboxes(const FColor& Color);
+	void DrawHitboxes(const FColor& Color, float LifeTime);
 
 	void TestDisplaceHitboxes();
 
@@ -42,6 +42,8 @@ public:
 	 */
 	template<typename F>
 	void PerformPhysicsShapeOperation(F Function);
+
+	void TransformAllHitboxes(FTransform Transform);
 
 	void SavePhysicsShapeTransformsLocal(TMap<physx::PxShape*, physx::PxTransform>& OutTransforms);
 
