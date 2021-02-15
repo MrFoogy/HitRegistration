@@ -10,7 +10,11 @@
 #include "GameFramework/InputSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "CustomCharacterMovementComponent.h"
+#include "RollbackDebugComponent.h"
+#include "ShapeManagerComponent.h"
 #include "Misc/CString.h"
+#include "Misc/DateTime.h"
+#include "Engine/NetDriver.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 
@@ -50,7 +54,13 @@ AFPSTemplateCharacter::AFPSTemplateCharacter(const FObjectInitializer& ObjectIni
 	GunOffset = FVector(100.0f, 0.0f, 10.0f);
 
 	UE_LOG(LogGauntlet, Display, TEXT("Setup player!"));
-	IsUsingDebugMovement = false;
+
+	RollbackDebug = CreateDefaultSubobject<URollbackDebugComponent>(TEXT("RollbackDebug"));
+	RollbackDebug->SetNetAddressable(); // Make DSO components net addressable
+	RollbackDebug->SetIsReplicated(true); // Enable replication by default
+
+	ShapeManager = CreateDefaultSubobject<UShapeManagerComponent>(TEXT("ShapeManager"));
+	ShapeManager->ShapeSourceMesh = GetMesh();
 
 	// Note: The ProjectileClass and the skeletal mesh/anim blueprints for Mesh1P, FP_Gun, and VR_Gun 
 	// are set in the derived blueprint asset named MyCharacter to avoid direct content references in C++.
@@ -77,19 +87,8 @@ void AFPSTemplateCharacter::BeginPlay()
 	else {
 		CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
 	}
-	SavePhysicsShapeTransformsLocal(OriginalShapeTransforms);
+	ShapeManager->SavePhysicsShapeTransformsLocal(OriginalShapeTransforms);
 
-	auto ShapeFunction = [&ShapesArray = AllShapes, &IDMap = ShapeIDs](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
-	{
-		physx::PxTransform ActorGlobalPose = PxActor->getGlobalPose();
-		physx::PxTransform ShapeGlobalPose = ActorGlobalPose * PxShape->getLocalPose();
-		if (ShapesArray.Num() < ID + 1) {
-			ShapesArray.SetNum(ID + 1);
-		}
-		ShapesArray[ID] = PxShape;
-		IDMap.Add(PxShape, ID);
-	};
-	PerformPhysicsShapeOperation(ShapeFunction);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -104,15 +103,15 @@ void AFPSTemplateCharacter::SetupPlayerInputComponent(class UInputComponent* Pla
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
-	PlayerInputComponent->BindAction("Scope", IE_Pressed, this, &AFPSTemplateCharacter::OnStartScoping);
-	PlayerInputComponent->BindAction("Scope", IE_Released, this, &AFPSTemplateCharacter::OnStopScoping);
-
 	// Bind fire event
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AFPSTemplateCharacter::OnFire);
 
 	// Bind movement events
 	PlayerInputComponent->BindAxis("MoveForward", this, &AFPSTemplateCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &AFPSTemplateCharacter::MoveRight);
+
+	PlayerInputComponent->BindAction("Scope", IE_Pressed, RollbackDebug, &URollbackDebugComponent::OnStartScoping);
+	PlayerInputComponent->BindAction("Scope", IE_Released, RollbackDebug, &URollbackDebugComponent::OnStopScoping);
 
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
@@ -179,25 +178,17 @@ void AFPSTemplateCharacter::OnFire()
 	GetController()->GetPlayerViewPoint(CameraLocation, CameraRotator);
 	const FVector ShootDir = CameraRotator.Vector();
 	const FHitResult Hit = CurrentWeapon->TraceShot(CameraLocation, ShootDir);
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Client fire time: %d %d"), FDateTime::UtcNow().GetSecond(), 
+		FDateTime::UtcNow().GetMillisecond()));
 	if (Hit.GetActor() != NULL) {
 		AFPSTemplateCharacter* HitPlayer = Cast<AFPSTemplateCharacter>(Hit.GetActor());
 		if (HitPlayer != NULL) {
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Hit: %s"), *Hit.BoneName.ToString()));
 			DrawDebugBox(GetWorld(), HitPlayer->GetActorLocation(), FVector(60.0f, 30.0f, 45.0f), HitPlayer->GetActorQuat(), FColor::Orange, false, 5.0f);
-			HitPlayer->DrawHitboxes(FColor::Orange);
+			HitPlayer->ShapeManager->DrawHitboxes(FColor::Orange);
 			ServerFire(HitPlayer);
 		}
 	}
-}
-
-void AFPSTemplateCharacter::OnStartScoping()
-{
-	IsScoping = true;
-}
-
-void AFPSTemplateCharacter::OnStopScoping()
-{
-	IsScoping = false;
 }
 
 //Commenting this section out to be consistent with FPS BP template.
@@ -241,7 +232,6 @@ void AFPSTemplateCharacter::OnRep_ReplicatedMovement()
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
 	FVector NewLocation = FRepMovement::RebaseOntoLocalOrigin(GetReplicatedMovement().Location, this);
 	MovementComponent->OnReceiveServerUpdate(NewLocation, GetReplicatedMovement().Rotation.Quaternion(), GetReplicatedMovement().LinearVelocity, NetUpdateFrequency);
-	ReplicationCounter++;
 }
 
 void AFPSTemplateCharacter::OnRep_RepViewRotation()
@@ -289,123 +279,31 @@ void AFPSTemplateCharacter::PreReplication(IRepChangedPropertyTracker & ChangedP
 
 		// Update the RepViewRotation member for replication
 		RepViewRotation = GetController()->GetControlRotation();
-		ReplicationCounter++;
 	}
 }
 
 void AFPSTemplateCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	if (IsUsingDebugMovement)
-	{
-		MoveForward(FMath::Sin(GetWorld()->GetTimeSeconds()));
-	}
+
+	// Server saves animation snapshot
 	AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *)GetWorld()->GetAuthGameMode();
 	if (GameMode != NULL) {
 		RepTimeline<RepAnimationSnapshot>& AnimationTimeline = GameMode->GetRepAnimationTimeline((IRepMovable*)this);
 		TMap<physx::PxShape*, physx::PxTransform> ShapeTransforms;
-		SavePhysicsShapeTransformsGlobal(ShapeTransforms);
+		ShapeManager->SavePhysicsShapeTransformsGlobal(ShapeTransforms);
 		AnimationTimeline.AddSnapshot(RepAnimationSnapshot(ShapeTransforms), GetWorld()->GetTimeSeconds());
-	}
-	if (GetLocalRole() == ROLE_AutonomousProxy) {
-		// Find the other players
-		if (IsScoping) {
-			AFPSTemplateCharacter* TargetCharacter = DebugFindOtherPlayer();
-			FRotator Rot = FRotationMatrix::MakeFromX(TargetCharacter->GetActorLocation() - FVector(0.0f, 0.0f, 20.0f) - GetActorLocation()).Rotator();
-			GetController()->SetControlRotation(Rot);
-		}
-		//GetWorld()->GetGameState()->PlayerArray[0]->GetPawn<AFPSTemplateCharacter>();
-		if (GetWorld()->GetTimeSeconds() - LastDebugShapeSendTime > 0.15f && DebugIsMonitoring) {
-			AFPSTemplateCharacter* OtherPlayer = DebugFindOtherPlayer();
-			if (OtherPlayer != NULL) {
-				//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Ping at client: %f"), GetPingRaw()));
-				ServerRequestAnimState(OtherPlayer, OtherPlayer->AnimSaveCounter);
-				OtherPlayer->SaveLocalShapeForDebug();
-			} 
-			LastDebugShapeSendTime = GetWorld()->GetTimeSeconds();
-		}
-	}
-	if (GetLocalRole() == ROLE_SimulatedProxy) {
-		if (RollbackTimelineWidget != NULL && ShouldUpdateTimelineSlider) {
-			float MaxTimeDiff = LocalPoseTimes[PosesRollback.Num() - 1] - LocalPoseTimes[0];
-			RollbackTimelineWidget->SetSliderMaxValue(MaxTimeDiff);
-			ShouldUpdateTimelineSlider = false;
-		}
-
-		int EndIndex = FMath::Min(PosesLocal.Num(), PosesRollback.Num()) - 1;
-		if (EndIndex == -1) return;
-		int TargetIndex = EndIndex;
-		if (DebugShapeDisplayTime > 0.1f) {
-			for (int i = 0; i <= EndIndex; i++) {
-				if (LocalPoseTimes[i] > DebugShapeDisplayTime) {
-					TargetIndex = i;
-					break;
-				}
-			}
-		}
-		int StartIndex = FMath::Max(0, TargetIndex - 1);
-		RepAnimationSnapshot LocalPose;
-		RepAnimationSnapshot RollbackPose;
-		if (ShouldInterpolateDebugPoses) {
-			float InterpolationAlpha = UKismetMathLibrary::NormalizeToRange(DebugShapeDisplayTime, LocalPoseTimes[StartIndex], LocalPoseTimes[TargetIndex]);
-			LocalPose = RepAnimationSnapshot::Interpolate(PosesLocal[StartIndex], PosesLocal[TargetIndex], InterpolationAlpha);
-			RollbackPose = RepAnimationSnapshot::Interpolate(PosesRollback[StartIndex], PosesRollback[TargetIndex], InterpolationAlpha);
-		}
-		else {
-			LocalPose = PosesLocal[StartIndex];
-			RollbackPose = PosesRollback[StartIndex];
-		}
-		for (PxShape* Shape : AllShapes) {
-			PxTransform& LocalTransform = LocalPose.GetShapeTransforms()[Shape];
-			DebugUtil::DrawPxShape(GetWorld(), Shape, P2UVector(LocalTransform.p), P2UQuat(LocalTransform.q), FColor::Yellow, 0.0f);
-
-			PxTransform& RollbackTransform = RollbackPose.GetShapeTransforms()[Shape];
-			DebugUtil::DrawPxShape(GetWorld(), Shape, P2UVector(RollbackTransform.p), P2UQuat(RollbackTransform.q), FColor::Orange, 0.0f);
-		}
-	}
-}
-
-void AFPSTemplateCharacter::SaveLocalShapeForDebug()
-{
-	TMap<physx::PxShape*, physx::PxTransform> ShapeTransforms;
-	SavePhysicsShapeTransformsGlobal(ShapeTransforms);
-	PosesLocal.Add(RepAnimationSnapshot(ShapeTransforms));
-	LocalPoseTimes.Add(GetWorld()->GetTimeSeconds());
-	AnimSaveCounter++;
-}
-
-AFPSTemplateCharacter* AFPSTemplateCharacter::DebugFindOtherPlayer()
-{
-	for (APlayerState* PS : GetWorld()->GetGameState()->PlayerArray) {
-		AFPSTemplateCharacter* Character = PS->GetPawn<AFPSTemplateCharacter>();
-		if (Character != this) {
-			return Character;
-		}
-	}
-	return NULL;
-}
-
-void AFPSTemplateCharacter::StartDebugMovement()
-{
-    UE_LOG(LogGauntlet, Display, TEXT("Start debug movement"));
-	if (HasLocalNetOwner()) {
-		UE_LOG(LogGauntlet, Display, TEXT("Is using debug movement!"));
-		DebugMovementStartTime = GetWorld()->GetTimeSeconds();
-		IsUsingDebugMovement = true;
-	}
-	else {
-		UE_LOG(LogGauntlet, Display, TEXT("NO LOCAL NET OWNER!"));
 	}
 }
 
 void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Target)
 {
-	return;
-	/*
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Fire!"));
 	AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *)GetWorld()->GetAuthGameMode();
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Server fire time: %d %d"), FDateTime::UtcNow().GetSecond(), 
+		FDateTime::UtcNow().GetMillisecond()));
 	if (GameMode != NULL) {
-		ServerSendShapeTransforms(Target, ServerReplicationMessageType::ServerState);
+		RollbackDebug->ServerSendShapeTransforms(Target, ServerReplicationMessageType::ServerState);
 
 		FVector ServerPosition = Target->GetActorLocation();
 		FQuat ServerRotation = Target->GetActorQuat();
@@ -413,76 +311,26 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 		GameMode->GetRepWorldTimelines().PreRollbackWorld((IRepMovable*)this), 
 		GameMode->GetRepWorldTimelines().RollbackWorld((IRepMovable*)this, GetWorld()->GetTimeSeconds(), 
 			RepTimeline<RepSnapshot>::InterpolationOffset, GetPing());
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, FString::Printf(TEXT("Ping at server: %f"), GetPing()));
-		ServerSendShapeTransforms(Target, ServerReplicationMessageType::RollbackState);
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, FString::Printf(TEXT("Ping at server: %f"), GetPingRaw()));
+		RollbackDebug->ServerSendShapeTransforms(Target, ServerReplicationMessageType::RollbackState);
 		FVector RollbackPosition = Target->GetActorLocation();
 		FQuat RollbackRotation = Target->GetActorQuat();
 		GameMode->GetRepWorldTimelines().ResetWorld((IRepMovable*)this);
 		ClientConfirmHit(Target, RollbackPosition, RollbackRotation, ServerPosition, ServerRotation);
 
 	}
-	*/
 }
 
-void AFPSTemplateCharacter::ServerRequestAnimState_Implementation(AFPSTemplateCharacter* Target, int Counter)
-{
-	AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *)GetWorld()->GetAuthGameMode();
-	if (GameMode != NULL) {
-		GameMode->GetRepWorldTimelines().PreRollbackTarget((IRepMovable*) Target), 
-		GameMode->GetRepWorldTimelines().RollbackTarget((IRepMovable*) Target, GetWorld()->GetTimeSeconds(), 
-			RepTimeline<RepSnapshot>::InterpolationOffset, Target->GetPing());
-		for (int i = 0; i < Target->AllShapes.Num(); i++) {
-			PxRigidActor* PxActor = (PxRigidActor*) Target->AllShapes[i]->getActor();
-			PxTransform ShapeGlobalPose = PxActor->getGlobalPose() * Target->AllShapes[i]->getLocalPose();
-			ClientSendRollbackShape(Target, Counter, i, P2UVector(ShapeGlobalPose.p), P2UQuat(ShapeGlobalPose.q));
-		}
-		GameMode->GetRepWorldTimelines().ResetTarget((IRepMovable*) Target);
-	}
-}
-
-void AFPSTemplateCharacter::ClientSendRollbackShape_Implementation(AFPSTemplateCharacter* Target, int Counter, int ShapeID,
-	FVector Position, FQuat Rotation)
-{
-	Target->OnReceiveRollbackShape(Counter, ShapeID, Position, Rotation);
-}
-
-void AFPSTemplateCharacter::OnReceiveRollbackShape(int Counter, int ShapeID,
-	FVector Position, FQuat Rotation)
-{
-	while (PosesRollback.Num() < Counter + 1) {
-		PosesRollback.Add(RepAnimationSnapshot(AllShapes));
-	}
-	PxTransform Transform = PxTransform(U2PVector(Position), U2PQuat(Rotation));
-	PosesRollback[Counter].SetShapeTransform(AllShapes[ShapeID], Transform);
-
-	if (PosesRollback[Counter].HasAddedAllTransforms()) {
-		float HitRate = CalculateRandomHitRate(PosesRollback[Counter]);
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Hit rate: %f"), HitRate));
-		RollbackLogger.LogDiscrepancy(LocalPoseTimes[Counter], HitRate, &PosesLocal[Counter], &PosesRollback[Counter]);
-		UE_LOG(LogTemp, Warning, TEXT("Actor: %s"), *GetName());
-	}
-}
 
 void AFPSTemplateCharacter::ClientConfirmHit_Implementation(AFPSTemplateCharacter* HitPlayer, FVector RollbackPosition, 
 	FQuat RollbackRotation, FVector ServerPosition, FQuat ServerRotation)
 {
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Hit fire time: %d %d"), FDateTime::UtcNow().GetSecond(), 
+		FDateTime::UtcNow().GetMillisecond()));
 	DrawDebugBox(GetWorld(), RollbackPosition , FVector(60.0f, 30.0f, 45.0f), RollbackRotation, FColor::Yellow, false, 5.0f);
 	DrawDebugBox(GetWorld(), ServerPosition , FVector(60.0f, 30.0f, 45.0f), ServerRotation, FColor::Green, false, 5.0f);
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Player: %s"), *RollbackPosition.ToString()));
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("Player: %s"), *ServerPosition.ToString()));
-}
-
-void AFPSTemplateCharacter::ClientDisplayShapeTransform_Implementation(AFPSTemplateCharacter* Target, int ShapeID, 
-	FVector Position, FQuat Rotation, ServerReplicationMessageType Type)
-{
-	Target->DisplayShapeTransform(ShapeID, Position, Rotation, Type);
-}
-
-void AFPSTemplateCharacter::DisplayShapeTransform(int ShapeID, 
-	FVector Position, FQuat Rotation, ServerReplicationMessageType Type)
-{
-	physx::PxShape* Shape = AllShapes[ShapeID];
-	DebugUtil::DrawPxShape(GetWorld(), Shape, Position, Rotation, Type == ServerReplicationMessageType::ServerState ? FColor::Green : FColor::Yellow, 0.0f);
 }
 
 void AFPSTemplateCharacter::PrepareRollback()
@@ -505,112 +353,12 @@ void AFPSTemplateCharacter::ResetRollback()
 {
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
 	MovementComponent->ApplySnapshot(PreRollbackSnapshot);
-	SetPhysicsShapeTransformsLocal(OriginalShapeTransforms);
+	ShapeManager->SetPhysicsShapeTransformsLocal(OriginalShapeTransforms);
 }
 
 void AFPSTemplateCharacter::ApplyAnimationSnapshot(RepAnimationSnapshot& RollbackSnapshot)
 {
-	SetPhysicsShapeTransformsGlobal(RollbackSnapshot.ShapeTransforms);
-}
-
-void AFPSTemplateCharacter::ServerSendShapeTransforms(AFPSTemplateCharacter* Target, ServerReplicationMessageType Type)
-{
-	for (int i = 0; i < Target->AllShapes.Num(); i++) {
-		PxRigidActor* PxActor = (PxRigidActor*) Target->AllShapes[i]->getActor();
-		PxTransform ShapeGlobalPose = PxActor->getGlobalPose() * Target->AllShapes[i]->getLocalPose();
-		ClientDisplayShapeTransform(Target, i, P2UVector(ShapeGlobalPose.p), P2UQuat(ShapeGlobalPose.q), Type);
-	}
-}
-
-template<typename F>
-void AFPSTemplateCharacter::PerformPhysicsShapeOperation(F Function)
-{
-	FBodyInstance* PhysicsBody = GetMesh()->GetBodyInstance();
-	PxScene* Scene = GetWorld()->GetPhysicsScene()->GetPxScene();
-	TArray<FPhysicsShapeHandle> collisionShapes;
-	Scene->lockRead();
-	// First gain access to at least one of the physics shapes
-	int32 numSyncShapes = PhysicsBody->GetAllShapes_AssumesLocked(collisionShapes);
-	Scene->unlockRead();
-
-	// Use one of the shapes to find all PxActors
-	int NumActors = collisionShapes[0].Shape->getActor()->getAggregate()->getNbActors();
-	physx::PxActor** PxActors = new physx::PxActor*[NumActors];
-	physx::PxShape* PxShapes[10];
-	int FoundActors = collisionShapes[0].Shape->getActor()->getAggregate()->getActors(PxActors, NumActors);
-
-	// For each PxActor, find all its shapes and execute the input function
-	int Index = 0;
-	for (int i = 0; i < FoundActors; i++) {
-		physx::PxRigidActor* RigidActor = (physx::PxRigidActor*) PxActors[i];
-		if (RigidActor == NULL) continue;
-		int FoundShapes = RigidActor->getShapes(PxShapes, 10);
-		for (int j = 0; j < FoundShapes; j++) {
-			Function(RigidActor, PxShapes[j], Index);
-			Index++;
-		}
-	}
-	delete[] PxActors;
-}
-
-void AFPSTemplateCharacter::DrawHitboxes(const FColor& Color) 
-{
-	auto World = GetWorld();
-	auto ShapeFunction = [Color, World](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
-	{
-		DebugUtil::DrawPxShape(World, PxActor, PxShape, Color, 5.0f);
-	};
-	PerformPhysicsShapeOperation(ShapeFunction);
-}
-
-void AFPSTemplateCharacter::TestDisplaceHitboxes()
-{
-	auto ShapeFunction = [](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
-	{
-		physx::PxTransform DesiredGlobalTransform(physx::PxVec3(0.0f, 0.0f, 200.0f), physx::PxQuat(physx::PxIdentity));
-		physx::PxTransform ActorGlobalPose = PxActor->getGlobalPose();
-		PxShape->setLocalPose(physx::PxTransform(ActorGlobalPose.getInverse() * DesiredGlobalTransform));
-	};
-	PerformPhysicsShapeOperation(ShapeFunction);
-}
-
-void AFPSTemplateCharacter::SavePhysicsShapeTransformsLocal(TMap<physx::PxShape*, physx::PxTransform>& OutTransforms)
-{
-	auto ShapeFunction = [&OutTransforms](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
-	{
-		OutTransforms.Add(PxShape, PxShape->getLocalPose());
-	};
-	PerformPhysicsShapeOperation(ShapeFunction);
-}
-
-void AFPSTemplateCharacter::SetPhysicsShapeTransformsLocal(TMap<physx::PxShape*, physx::PxTransform>& Transforms)
-{
-	auto ShapeFunction = [&Transforms](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
-	{
-		PxShape->setLocalPose(Transforms[PxShape]);
-	};
-	PerformPhysicsShapeOperation(ShapeFunction);
-}
-
-void AFPSTemplateCharacter::SavePhysicsShapeTransformsGlobal(TMap<physx::PxShape*, physx::PxTransform>& OutTransforms)
-{
-	auto ShapeFunction = [&OutTransforms](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
-	{
-		physx::PxTransform ActorGlobalPose = PxActor->getGlobalPose();
-		physx::PxTransform ShapeGlobalPose = ActorGlobalPose * PxShape->getLocalPose();
-		OutTransforms.Add(PxShape, ShapeGlobalPose);
-	};
-	PerformPhysicsShapeOperation(ShapeFunction);
-}
-
-void AFPSTemplateCharacter::SetPhysicsShapeTransformsGlobal(TMap<physx::PxShape*, physx::PxTransform>& Transforms)
-{
-	auto ShapeFunction = [&Transforms](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
-	{
-		physx::PxTransform ActorGlobalPose = PxActor->getGlobalPose();
-		PxShape->setLocalPose(ActorGlobalPose.getInverse() * Transforms[PxShape]);
-	};
-	PerformPhysicsShapeOperation(ShapeFunction);
+	ShapeManager->SetPhysicsShapeTransformsGlobal(RollbackSnapshot.ShapeTransforms);
 }
 
 float AFPSTemplateCharacter::GetPing()
@@ -629,165 +377,3 @@ float AFPSTemplateCharacter::GetInterpolationTime()
 	return GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset;
 }
 
-void AFPSTemplateCharacter::SetRollbackTimelineValue(float Value)
-{
-	DebugShapeDisplayTime = Value;
-}
-
-void AFPSTemplateCharacter::OnOpenRollbackTimelineUI(URollbackTimelineWidget* Widget)
-{
-	RollbackTimelineWidget = Widget;
-}
-
-void AFPSTemplateCharacter::SetShouldUpdateTimelineSlider(bool ShouldUpdateSlider)
-{
-	ShouldUpdateTimelineSlider = ShouldUpdateSlider;
-}
-
-void AFPSTemplateCharacter::SetShouldInterpolateDebugPoses(bool ShouldInterpolatePoses)
-{
-	ShouldInterpolateDebugPoses = ShouldInterpolatePoses;
-}
-
-void AFPSTemplateCharacter::RollbackDebugOffset(float Offset)
-{
-	ServerSetReplicationOffset(Offset);
-	UE_LOG(LogTemp, Warning, TEXT("Bont rollback offset: %f"), RollbackOffset);
-}
-
-void AFPSTemplateCharacter::ServerSetReplicationOffset_Implementation(float Offset)
-{
-	RollbackOffset = Offset;
-	UE_LOG(LogTemp, Warning, TEXT("Set rollback offset: %f"), RollbackOffset);
-}
-
-void AFPSTemplateCharacter::SaveRollbackLog()
-{
-	RollbackLogger.DumpLogFile();
-}
-
-void AFPSTemplateCharacter::DebugPrepareMonitoredTest()
-{
-	// Player starts are randomly assigned, so for consistency, set the start position
-	ServerSetInitialTransform(FVector(-300.0f, 100.0f, 262.0f), FVector(1.0f, 0.0f, 0.0f).ToOrientationQuat());
-}
-
-void AFPSTemplateCharacter::DebugPrepareMonitoringTest()
-{
-	// Player starts are randomly assigned, so for consistency, set the start position
-	ServerSetInitialTransform(FVector(0.0f, -300.0f, 262.0f), FRotationMatrix::MakeFromX(FVector(1.0f, 0.0f, 0.0f)).ToQuat());
-}
-
-void AFPSTemplateCharacter::DebugStartMonitoring()
-{
-	DebugIsMonitoring = true;
-	LastDebugShapeSendTime = GetWorld()->GetTimeSeconds();
-	IsScoping = true;
-	DebugFindOtherPlayer()->RollbackLogger.CreateLogFile();
-}
-
-void AFPSTemplateCharacter::ServerSetInitialTransform_Implementation(FVector Position, FQuat Rotation)
-{
-	TeleportTo(Position, Rotation.Rotator());
-}
-
-FVector AFPSTemplateCharacter::GetRandomPointInBoundingBox() 
-{
-	float BoxHalfHeight = 100.0f;
-	float BoxHalfWidth = 50.0f;
-	FVector LocalUnrotated = UKismetMathLibrary::RandomPointInBoundingBox(FVector::ZeroVector, FVector(BoxHalfWidth, BoxHalfWidth, BoxHalfHeight));
-	FVector Rotated = GetActorQuat().RotateVector(LocalUnrotated);
-	FVector Res = GetActorLocation() + Rotated;
-	//DrawDebugPoint(GetWorld(), Res, 5.0f, FColor::Purple, false, 0.5f);
-	return Res;
-}
-
-void AFPSTemplateCharacter::GenerateRandomBoundingBoxPositions()
-{
-	RandomBoundingBoxPositions.Empty();
-	for (int i = 0; i < NUM_RANDOM_HIT_TESTS; i++) {
-		RandomBoundingBoxPositions.Add(GetRandomPointInBoundingBox());
-	}
-}
-
-FRay AFPSTemplateCharacter::GetRandomCollisionTestRay(int RandomPointIndex)
-{
-	float Dist = 300.0f;
-	FVector PassThroughPoint = RandomBoundingBoxPositions[RandomPointIndex];
-	FVector Start = GetActorRightVector() * Dist + PassThroughPoint;
-	//DrawDebugLine(GetWorld(), Start, Start - (GetActorRightVector() * Dist * 2.0f), FColor::Purple, false, 0.5f);
-	//DrawDebugPoint(GetWorld(), Start, 10.0f, FColor::Blue, false, 0.5f);
-	return FRay(Start, -GetActorRightVector());
-}
-
-bool AFPSTemplateCharacter::TestHitFromRay(const FRay& Ray)
-{
-	float Dist = 300.0f;
-	FCollisionQueryParams TraceParams;
-	TraceParams.bReturnPhysicalMaterial = true;
-
-	FHitResult Hit(ForceInit);
-	Hit.bBlockingHit = true;
-	PxScene* PScene = GetWorld()->GetPhysicsScene()->GetPxScene();
-	
-	// Make a loop to be able to detect multiple blocking objects
-	while (Hit.Actor != this && Hit.bBlockingHit == true) {
-		if (GetWorld()->LineTraceSingleByChannel(Hit, Ray.Origin, Ray.Origin + Ray.Direction * Dist * 2.f, ECC_Visibility, TraceParams)) {
-			TraceParams.AddIgnoredActor(Hit.Actor.Get());
-			if (Hit.Actor != this) continue;
-			return true;
-			/*
-			FBodyInstance* HitBodyInstance = Hit.Component->GetBodyInstance(Hit.BoneName);
-			TArray<FPhysicsShapeHandle> collisionShapes;
-			PScene->lockRead();
-			int32 numSyncShapes = HitBodyInstance->GetAllShapes_AssumesLocked(collisionShapes);
-			PScene->unlockRead();
-			for (int i = 0; i < numSyncShapes; i++) {
-				if (AllShapes.Contains(collisionShapes[i].Shape)) {
-					IsHit = true;
-				}
-			}
-			if (IsHit) {
-				break;
-			}
-			*/
-		}
-	}
-	return false;
-}
-
-float AFPSTemplateCharacter::CalculateRandomHitRate(RepAnimationSnapshot& RollbackSnapshot)
-{
-	int Matches = 0;
-	int LocalHits = 0;
-	RandomHitTestResults.Empty();
-	GenerateRandomBoundingBoxPositions();
-
-	// First, test without rollback, store the intermediate results
-	for (int i = 0; i < NUM_RANDOM_HIT_TESTS; i++) {
-		FRay Ray = GetRandomCollisionTestRay(i);
-		RandomHitTestResults.Add(TestHitFromRay(Ray));
-		if (RandomHitTestResults[i]) {
-			LocalHits++;
-		}
-	}
-
-	TMap<physx::PxShape*, physx::PxTransform> ShapeTransforms;
-	SavePhysicsShapeTransformsGlobal(ShapeTransforms);
-	RepAnimationSnapshot OriginalSnapshot(ShapeTransforms);
-
-	ApplyAnimationSnapshot(RollbackSnapshot);
-
-	for (int i = 0; i < NUM_RANDOM_HIT_TESTS; i++) {
-		// Right now, do not test for false negatives
-		if (!RandomHitTestResults[i]) continue;
-		FRay Ray = GetRandomCollisionTestRay(i);
-		if (TestHitFromRay(Ray)) {
-			Matches++;
-		}
-	}
-
-	ApplyAnimationSnapshot(OriginalSnapshot);
-
-	return (float) Matches / LocalHits;
-}

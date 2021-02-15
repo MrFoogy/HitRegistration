@@ -15,7 +15,6 @@
 #include "RepSnapshot.h"
 #include "RepAnimationSnapshot.h"
 #include "RollbackTimelineWidget.h"
-#include "RollbackLogger.h"
 #include "DebugUtil.h"
 #include "PhysXIncludes.h"
 #include "PhysicsPublic.h"	
@@ -25,12 +24,8 @@
 
 class UInputComponent;
 class AFPSTemplateCharacter;
-
-UENUM()
-enum ServerReplicationMessageType
-{
-	ServerState, RollbackState
-};
+class URollbackDebugComponent;
+class UShapeManagerComponent;
 
 UCLASS(config=Game)
 class AFPSTemplateCharacter : public ACharacter, public IRepMovable
@@ -45,46 +40,29 @@ class AFPSTemplateCharacter : public ACharacter, public IRepMovable
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FirstPersonCameraComponent;
 
+public:
+	UPROPERTY(VisibleAnywhere, Category = "HitReg")
+	class URollbackDebugComponent* RollbackDebug;
+
+	UPROPERTY(VisibleAnywhere, Category = "HitReg")
+	class UShapeManagerComponent* ShapeManager;
+
 	/*
 	AFPSTemplateCharacter();
 public:
 	AFPSTemplateCharacter(const FObjectInitializer& ObjectInitializer);
 	*/
 
+public:
+	float RollbackOffset = -0.035f;
+
 protected:
 	virtual void BeginPlay();
 	RepSnapshot PreRollbackSnapshot;
 	TMap<physx::PxShape*, physx::PxTransform> OriginalShapeTransforms;
-	TArray<physx::PxShape*> AllShapes;
-	TMap<physx::PxShape*, int> ShapeIDs;
 
 	RepTimeline<RepViewRotationSnapshot> RepViewRotationTimeline;
 
-	TArray<RepAnimationSnapshot> PosesLocal;
-	TArray<RepAnimationSnapshot> PosesRollback;
-	TArray<float> LocalPoseTimes;
-	int AnimSaveCounter = 0;
-	int ReplicationCounter = 0;
-	bool DebugIsMonitoring = false;
-	float LastDebugShapeSendTime = 0.0f;
-	float DebugShapeDisplayTime = 0.0f;
-	class URollbackTimelineWidget* RollbackTimelineWidget;
-	FRollbackLogger RollbackLogger;
-
-	bool IsScoping = false;
-	bool ShouldUpdateTimelineSlider = true;
-	bool ShouldInterpolateDebugPoses = false;
-
-	float RollbackOffset = -0.035f;
-
-	const int NUM_RANDOM_HIT_TESTS = 300;
-	TArray<FVector> RandomBoundingBoxPositions;
-	TArray<bool> RandomHitTestResults;
-	void GenerateRandomBoundingBoxPositions();
-	FVector GetRandomPointInBoundingBox();
-	FRay GetRandomCollisionTestRay(int RandomPointIndex);
-	float CalculateRandomHitRate(RepAnimationSnapshot& RollbackSnapshot);
-	bool TestHitFromRay(const FRay& Ray);
 
 public:
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
@@ -118,34 +96,24 @@ public:
 	UPROPERTY(Transient)
 	class AWeapon* CurrentWeapon;
 
-	UFUNCTION(Exec, Category = ExecFunctions)
-	void StartDebugMovement();
-
-	UFUNCTION(Exec, Category = ExecFunctions)
-	void SaveRollbackLog();
-
-	UFUNCTION(Exec, Category = ExecFunctions)
-	void RollbackDebugOffset(float Offset);
-
 	UFUNCTION(BlueprintCallable)
 	FRotator GetViewRotation();
 
 	UFUNCTION(BlueprintCallable)
 	FVector GetPlayerVelocity();
 
-protected:
-	/** Fires a projectile. */
-	void OnFire();
-
-	void OnStartScoping();
-
-	void OnStopScoping();
-
+public:
 	/** Handles moving forward/backward */
 	void MoveForward(float Val);
 
 	/** Handles stafing movement, left and right */
 	void MoveRight(float Val);
+
+	virtual void ApplyAnimationSnapshot(RepAnimationSnapshot& AnimationSnapshot);
+
+protected:
+	/** Fires a projectile. */
+	void OnFire();
 
 	/**
 	 * Called via input to turn at a given rate.
@@ -159,39 +127,6 @@ protected:
 	 */
 	void LookUpAtRate(float Rate);
 
-	void DrawHitboxes(const FColor& Color);
-
-	void TestDisplaceHitboxes();
-
-	bool IsUsingDebugMovement = false;
-	float DebugMovementStartTime;
-
-	void SavePhysicsShapeTransformsLocal(TMap<physx::PxShape*, physx::PxTransform>& OutTransforms);
-
-	void SetPhysicsShapeTransformsLocal(TMap<physx::PxShape*, physx::PxTransform>& Transforms);
-
-	void SavePhysicsShapeTransformsGlobal(TMap<physx::PxShape*, physx::PxTransform>& OutTransforms);
-
-	void SetPhysicsShapeTransformsGlobal(TMap<physx::PxShape*, physx::PxTransform>& Transforms);
-
-	void OnReceiveRollbackShape(int Counter, int ShapeID, FVector Position, FQuat Rotation);
-
-	void SaveLocalShapeForDebug();
-
-	/** 
-	 * Calls a function for each Physics Shape on the character
-	 * @param Function the function to be called
-	 */
-	template<typename F>
-	void PerformPhysicsShapeOperation(F Function);
-
-	virtual void ApplyAnimationSnapshot(RepAnimationSnapshot& AnimationSnapshot);
-
-	virtual void ServerSendShapeTransforms(AFPSTemplateCharacter* Target, ServerReplicationMessageType Type);
-	virtual void DisplayShapeTransform(int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type);
-
-	virtual float GetPing();
-	virtual float GetPingRaw();
 
 protected:
 	// APawn interface
@@ -208,23 +143,9 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerFire(AFPSTemplateCharacter* Target);
 
-	UFUNCTION(Server, Reliable)
-	void ServerRequestAnimState(AFPSTemplateCharacter* Target, int Counter);
-
-	UFUNCTION(Server, Reliable)
-	void ServerSetReplicationOffset(float Offset);
-
-	UFUNCTION(Server, Reliable)
-	void ServerSetInitialTransform(FVector Position, FQuat Rotation);
 
 	UFUNCTION(Client, Reliable)
 	void ClientConfirmHit(AFPSTemplateCharacter* HitPlayer, FVector RollbackPosition, FQuat RollbackRotation, FVector ServerPosition, FQuat ServerRotation);
-
-	UFUNCTION(Client, Reliable)
-	void ClientDisplayShapeTransform(AFPSTemplateCharacter* Target, int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type);
-
-	UFUNCTION(Client, Reliable)
-	void ClientSendRollbackShape(AFPSTemplateCharacter* Target, int Counter, int ShapeID, FVector Position, FQuat Rotation);
 
 	UPROPERTY(Transient, Replicated, ReplicatedUsing=OnRep_RepViewRotation)
 	FRotator RepViewRotation;
@@ -242,15 +163,7 @@ public:
 	virtual void ResetRollback() override;
 
 public:
+	virtual float GetPing();
+	virtual float GetPingRaw();
 	virtual float GetInterpolationTime();
-
-	void DebugPrepareMonitoredTest();
-	void DebugPrepareMonitoringTest();
-	UFUNCTION(Exec, Category = ExecFunctions)
-	void DebugStartMonitoring();
-	void SetRollbackTimelineValue(float Value);
-	AFPSTemplateCharacter* DebugFindOtherPlayer();
-	void OnOpenRollbackTimelineUI(URollbackTimelineWidget* Widget);
-	void SetShouldUpdateTimelineSlider(bool ShouldUpdateSlider);
-	void SetShouldInterpolateDebugPoses(bool ShouldInterpolatePoses);
 };

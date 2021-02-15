@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "HitRegMonitorGauntletController.h"
+#include "RollbackDebugComponent.h"
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "TimerManager.h"
 #include "Async/Async.h"
@@ -20,12 +21,12 @@ void UHitRegMonitorGauntletController::PrepareTest()
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMonitorGauntletController::StartTesting, PrepareTime, false);
     APlayerController* PlayerController = GetFirstPlayerController();
     Character = (AFPSTemplateCharacter*)PlayerController->GetPawn();
-    Character->DebugPrepareMonitoringTest();
+    Character->RollbackDebug->DebugPrepareMonitoringTest();
 }
 
 void UHitRegMonitorGauntletController::StartTesting()
 {
-    Character->DebugStartMonitoring();
+    Character->RollbackDebug->DebugStartMonitoring();
     FTimerHandle dummy;
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMonitorGauntletController::RecordResults, TestDuration, false);
     /*
@@ -54,7 +55,7 @@ void UHitRegMonitorGauntletController::OnTick(float DeltaTime)
 
 void UHitRegMonitorGauntletController::RecordResults()
 {
-    Character->DebugFindOtherPlayer()->SaveRollbackLog();
+    Character->RollbackDebug->DebugFindOtherPlayer()->RollbackDebug->SaveRollbackLog();
     UE_LOG(LogGauntlet, Display, TEXT("Written log!"));
 	FTimerHandle dummy;
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMonitorGauntletController::StopTesting, ShutDownTime, false);

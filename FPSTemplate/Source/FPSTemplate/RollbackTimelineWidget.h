@@ -24,10 +24,16 @@ public:
 	class USlider* TimelineSlider;
 
 	UPROPERTY(meta = (BindWidget))
+	class USlider* FudgeSlider;
+
+	UPROPERTY(meta = (BindWidget))
 	class UButton* RefreshButton;
 
 	UPROPERTY(meta = (BindWidget))
 	class UTextBlock* EndTimeText;
+
+	UPROPERTY(meta = (BindWidget))
+	class UTextBlock* FudgeText;
 
 	UPROPERTY(meta = (BindWidget))
 	class UCheckBox* InterpolateCheckbox;
@@ -38,7 +44,10 @@ public:
 	virtual bool Initialize() override;
 
 	UFUNCTION()
-	void OnSliderValueChanged(float Value);
+	void OnTimelineSliderValueChanged(float Value);
+
+	UFUNCTION()
+	void OnFudgeSliderValueChanged(float Value);
 
 	UFUNCTION()
 	void OnInterpolateCheckboxChanged(bool CheckState);

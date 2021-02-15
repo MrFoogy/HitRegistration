@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "HitRegMoveGauntletController.h"
+#include "RollbackDebugComponent.h"
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "TimerManager.h"
 #include "Async/Async.h"
@@ -20,12 +21,12 @@ void UHitRegMoveGauntletController::PrepareTest()
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMoveGauntletController::StartTesting, PrepareTime, false);
     APlayerController* PlayerController = GetFirstPlayerController();
     Character = (AFPSTemplateCharacter*)PlayerController->GetPawn();
-    Character->DebugPrepareMonitoredTest();
+    Character->RollbackDebug->DebugPrepareMonitoredTest();
 }
 
 void UHitRegMoveGauntletController::StartTesting()
 {
-    Character->StartDebugMovement();
+    Character->RollbackDebug->StartDebugMovement();
     FTimerHandle dummy;
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMoveGauntletController::StopTesting, TestDuration + ShutDownTime, false);
     /*

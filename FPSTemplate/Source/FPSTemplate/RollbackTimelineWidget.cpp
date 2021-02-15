@@ -2,12 +2,14 @@
 
 
 #include "RollbackTimelineWidget.h"
+#include "RollbackDebugComponent.h"
 
 bool URollbackTimelineWidget::Initialize()
 {
 	bool Res = UUserWidget::Initialize();
 
-	TimelineSlider->OnValueChanged.AddDynamic(this, &URollbackTimelineWidget::OnSliderValueChanged);
+	TimelineSlider->OnValueChanged.AddDynamic(this, &URollbackTimelineWidget::OnTimelineSliderValueChanged);
+	FudgeSlider->OnValueChanged.AddDynamic(this, &URollbackTimelineWidget::OnFudgeSliderValueChanged);
 	TimelineSlider->OnMouseCaptureBegin.AddDynamic(this, &URollbackTimelineWidget::OnStartSliding);
 	TimelineSlider->OnMouseCaptureEnd.AddDynamic(this, &URollbackTimelineWidget::OnStopSliding);
 
@@ -21,14 +23,20 @@ bool URollbackTimelineWidget::Initialize()
 void URollbackTimelineWidget::AssignTargetCharacter(AFPSTemplateCharacter* ControlledCharacter)
 {
 	//UE_LOG(LogTemp, Warning, TEXT("We're here!"));
-	TargetCharacter = ControlledCharacter->DebugFindOtherPlayer();
-	TargetCharacter->OnOpenRollbackTimelineUI(this);
-	TargetCharacter->SetShouldUpdateTimelineSlider(true);
+	TargetCharacter = ControlledCharacter->RollbackDebug->DebugFindOtherPlayer();
+	TargetCharacter->RollbackDebug->OnOpenRollbackTimelineUI(this);
+	TargetCharacter->RollbackDebug->SetShouldUpdateTimelineSlider(true);
 }
 
-void URollbackTimelineWidget::OnSliderValueChanged(float Value)
+void URollbackTimelineWidget::OnTimelineSliderValueChanged(float Value)
 {
-	TargetCharacter->SetRollbackTimelineValue(Value);
+	TargetCharacter->RollbackDebug->SetRollbackTimelineValue(Value);
+}
+
+void URollbackTimelineWidget::OnFudgeSliderValueChanged(float Value)
+{
+	TargetCharacter->RollbackDebug->DebugSetShapeDisplayOffset(Value);
+	FudgeText->SetText(FText::FromString(FString::Printf(TEXT("%f s"), Value)));
 }
 
 void URollbackTimelineWidget::SetSliderMaxValue(float MaxValue)
@@ -49,10 +57,10 @@ void URollbackTimelineWidget::OnStopSliding()
 
 void URollbackTimelineWidget::OnInterpolateCheckboxChanged(bool CheckState)
 {
-	TargetCharacter->SetShouldInterpolateDebugPoses(CheckState);
+	TargetCharacter->RollbackDebug->SetShouldInterpolateDebugPoses(CheckState);
 }
 
 void URollbackTimelineWidget::OnRefreshButtonPress()
 {
-	TargetCharacter->SetShouldUpdateTimelineSlider(true);
+	TargetCharacter->RollbackDebug->SetShouldUpdateTimelineSlider(true);
 }
