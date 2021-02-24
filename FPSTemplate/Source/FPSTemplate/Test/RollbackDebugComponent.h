@@ -51,10 +51,13 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientDisplayShapeTransform(AFPSTemplateCharacter* Target, int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type);
 
-	UFUNCTION(Exec, Category = ExecFunctions)
+	UFUNCTION(Client, Reliable)
+	void ClientSendDebugOptimalFudge(float OptimalFudge, float Time);
+
+	void DebugStartMonitoring();
+
 	void StartDebugMovement();
 
-	UFUNCTION(Exec, Category = ExecFunctions)
 	void SaveRollbackLog();
 
 	UFUNCTION(Exec, Category = ExecFunctions)
@@ -97,7 +100,7 @@ protected:
 	float CalculateRandomHitRate(RepAnimationSnapshot& RollbackSnapshot);
 	bool TestHitFromRay(const FRay& Ray);
 
-	void FindOptimalRollbackFudge(int Counter);
+	float FindOptimalRollbackFudge(int Counter);
 
 public:
 	virtual void ServerSendShapeTransforms(AFPSTemplateCharacter* Target, ServerReplicationMessageType Type);
@@ -109,12 +112,10 @@ public:
 	void OnStartScoping();
 	void OnStopScoping();
 
-	void OnReceiveRemoteShape(int Counter, int ShapeID, FVector Position, FQuat Rotation);
+	void OnReceiveRemoteShape(AFPSTemplateCharacter* MonitoringPlayer, int Counter, int ShapeID, FVector Position, FQuat Rotation);
 
 	void DebugPrepareMonitoredTest();
 	void DebugPrepareMonitoringTest();
-	UFUNCTION(Exec, Category = ExecFunctions)
-	void DebugStartMonitoring();
 
 	AFPSTemplateCharacter* DebugFindOtherPlayer();
 

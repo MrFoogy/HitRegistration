@@ -1,6 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
+#include "Kismet/KismetMathLibrary.h"
+#include "Math/UnrealMathUtility.h"
 #include "Core/Timelines/RepAnimationSnapshot.h"
 
 RepAnimationSnapshot::RepAnimationSnapshot()
@@ -33,7 +35,7 @@ void RepAnimationSnapshot::SetShapeTransform(physx::PxShape* Shape, physx::PxTra
 	AddedTransforms++;
 }
 
-TMap<physx::PxShape*, physx::PxTransform>& RepAnimationSnapshot::GetShapeTransforms()
+const TMap<physx::PxShape*, physx::PxTransform>& RepAnimationSnapshot::GetShapeTransforms() const
 {
 	return ShapeTransforms;
 }
@@ -51,6 +53,35 @@ RepAnimationSnapshot RepAnimationSnapshot::Interpolate(const RepAnimationSnapsho
 	}
 
 	return InterpolatedSnapshot;
+}
+
+float RepAnimationSnapshot::GetAverageAngleDiscrepancy(const RepAnimationSnapshot& Snapshot1, const RepAnimationSnapshot& Snapshot2)
+{
+	float TotalAngleDiff = 0.0f;
+	for (auto KV : Snapshot1.GetShapeTransforms()) {
+		physx::PxShape* Shape = KV.Key;
+		physx::PxTransform Transform1 = Snapshot1.GetShapeTransforms()[Shape];
+		physx::PxTransform Transform2 = Snapshot2.GetShapeTransforms()[Shape];
+		float AngleDiff = Transform1.q.getAngle(Transform2.q);
+		AngleDiff = FMath::Min(AngleDiff, 2.0f * UKismetMathLibrary::GetPI() - AngleDiff);
+		TotalAngleDiff += AngleDiff;
+		float DistDiff = (Transform1.p - Transform2.p).magnitude();
+	}
+	return TotalAngleDiff / Snapshot1.GetShapeTransforms().Num();
+}
+
+float RepAnimationSnapshot::GetAveragePositionDiscrepancy(const RepAnimationSnapshot& Snapshot1, const RepAnimationSnapshot& Snapshot2)
+{
+	float TotalDistDiff = 0.0f;
+	for (auto KV : Snapshot1.GetShapeTransforms()) {
+		physx::PxShape* Shape = KV.Key;
+		physx::PxTransform Transform1 = Snapshot1.GetShapeTransforms()[Shape];
+		physx::PxTransform Transform2 = Snapshot2.GetShapeTransforms()[Shape];
+		float AngleDiff = Transform1.q.getAngle(Transform2.q);
+		float DistDiff = (Transform1.p - Transform2.p).magnitude();
+		TotalDistDiff += DistDiff;
+	}
+	return TotalDistDiff / Snapshot1.GetShapeTransforms().Num();
 }
 
 bool RepAnimationSnapshot::HasAddedAllTransforms() const {

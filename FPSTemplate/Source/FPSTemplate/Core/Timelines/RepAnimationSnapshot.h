@@ -21,9 +21,12 @@ public:
 	void SetShapeTransform(physx::PxShape* Shape, physx::PxTransform Transform);
 	bool HasAddedAllTransforms() const;
 
-	TMap<physx::PxShape*, physx::PxTransform>& GetShapeTransforms();
+	const TMap<physx::PxShape*, physx::PxTransform>& GetShapeTransforms() const;
 
 	static RepAnimationSnapshot Interpolate(const RepAnimationSnapshot& Start, const RepAnimationSnapshot& End, float Alpha);
+
+	static float GetAverageAngleDiscrepancy(const RepAnimationSnapshot& Snapshot1, const RepAnimationSnapshot& Snapshot2);
+	static float GetAveragePositionDiscrepancy(const RepAnimationSnapshot& Snapshot1, const RepAnimationSnapshot& Snapshot2);
 
 protected:
 	int AddedTransforms;

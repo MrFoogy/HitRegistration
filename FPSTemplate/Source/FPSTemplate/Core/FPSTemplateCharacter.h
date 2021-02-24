@@ -98,6 +98,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	FVector GetPlayerVelocity();
 
+	UFUNCTION(Exec, Category = ExecFunctions)
+	void DebugStartMonitoring();
+
+	UFUNCTION(Exec, Category = ExecFunctions)
+	void StartDebugMovement();
+
 public:
 	/** Handles moving forward/backward */
 	void MoveForward(float Val);

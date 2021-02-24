@@ -22,24 +22,30 @@ void FRollbackLogger::CreateLogFile() {
 	FDateTime DateTime = FDateTime::Now();
 	FString TimeString = DateTime.ToString();
 	//FilePath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()) + FString::Printf(TEXT("/DebugLogs/%s-Log.txt"), *TimeString);
-	FilePath = FString::Printf(TEXT("D:/Exjobb-Jonathan/HitRegistration/FPSTemplate/DebugLogs/%s-Log.txt"), *TimeString);
+	DiscrepancyFilePath = FString::Printf(TEXT("D:/Exjobb-Jonathan/HitRegistration/FPSTemplate/DebugLogs/%s-DiscrepancyLog.txt"), *TimeString);
+	OptimalFudgeFilePath = FString::Printf(TEXT("D:/Exjobb-Jonathan/HitRegistration/FPSTemplate/DebugLogs/%s-FudgeLog.txt"), *TimeString);
 }
 
-void FRollbackLogger::WriteString(FString Str) {
-	FFileHelper::SaveStringToFile(Str, *FilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
+void FRollbackLogger::WriteString(FString* Str, FString* FilePath) {
+	FFileHelper::SaveStringToFile(*Str, **FilePath, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
 	//FFileHelper::SaveStringToFile(Str, *FilePath);
 }
 
 void FRollbackLogger::DumpLogFile() 
 {
-	UE_LOG(LogTemp, Warning, TEXT("Log: %s"), *LogString);
-	WriteString(LogString);
+	UE_LOG(LogTemp, Warning, TEXT("Log: %s"), *DiscrepancyLogString);
+	if (DiscrepancyLogString.Len() > 0) {
+		WriteString(&DiscrepancyLogString, &DiscrepancyFilePath);
+	}
+	if (OptimalFudgeLogString.Len() > 0) {
+		WriteString(&OptimalFudgeLogString, &OptimalFudgeFilePath);
+	}
 }
 
 void FRollbackLogger::LogDiscrepancy(float Time, float RandomHitPrecision, RepAnimationSnapshot* LocalSnapshot, RepAnimationSnapshot* RollbackSnapshot)
 {
-	LogString += FString::Printf(TEXT("Time: %f\n"), Time);
-	LogString += FString::Printf(TEXT("Precision: %f\n"), RandomHitPrecision);
+	DiscrepancyLogString += FString::Printf(TEXT("Time: %f\n"), Time);
+	DiscrepancyLogString += FString::Printf(TEXT("Precision: %f\n"), RandomHitPrecision);
 	for (auto KV : LocalSnapshot->GetShapeTransforms()) {
 		physx::PxShape* Shape = KV.Key;
 		physx::PxTransform LocalTransform = LocalSnapshot->GetShapeTransforms()[Shape];
@@ -47,7 +53,13 @@ void FRollbackLogger::LogDiscrepancy(float Time, float RandomHitPrecision, RepAn
 		float AngleDiff = LocalTransform.q.getAngle(RollbackTransform.q);
 		AngleDiff = FMath::Min(AngleDiff, 2.0f * UKismetMathLibrary::GetPI() - AngleDiff);
 		float DistDiff = (RollbackTransform.p - LocalTransform.p).magnitude();
-		LogString += FString::Printf(TEXT("Angle: %f\n"), AngleDiff);
-		LogString += FString::Printf(TEXT("Distance: %f\n"), DistDiff);
+		DiscrepancyLogString += FString::Printf(TEXT("Angle: %f\n"), AngleDiff);
+		DiscrepancyLogString += FString::Printf(TEXT("Distance: %f\n"), DistDiff);
 	}
+}
+
+void FRollbackLogger::LogOptimalFudge(float Time, float OptimalFudge)
+{
+	OptimalFudgeLogString += FString::Printf(TEXT("Time: %f\n"), Time);
+	OptimalFudgeLogString += FString::Printf(TEXT("OptimalFudge: %f\n"), OptimalFudge);
 }

@@ -95,10 +95,10 @@ void URollbackDebugComponent::TickComponent(float DeltaTime, ELevelTick TickType
 		}
 
 		for (PxShape* Shape : OwnerCharacter->ShapeManager->GetAllShapes()) {
-			PxTransform& LocalTransform = LocalPose.GetShapeTransforms()[Shape];
+			const PxTransform& LocalTransform = LocalPose.GetShapeTransforms()[Shape];
 			DebugUtil::DrawPxShape(GetWorld(), Shape, P2UVector(LocalTransform.p), P2UQuat(LocalTransform.q), FColor::Yellow, 0.0f);
 
-			PxTransform& RollbackTransform = RollbackPose.GetShapeTransforms()[Shape];
+			const PxTransform& RollbackTransform = RollbackPose.GetShapeTransforms()[Shape];
 			DebugUtil::DrawPxShape(GetWorld(), Shape, P2UVector(RollbackTransform.p), P2UQuat(RollbackTransform.q), FColor::Orange, 0.0f);
 		}
 	}
@@ -112,12 +112,31 @@ void URollbackDebugComponent::TickComponent(float DeltaTime, ELevelTick TickType
 		}
 		//GetWorld()->GetGameState()->PlayerArray[0]->GetPawn<AFPSTemplateCharacter>();
 		if (GetWorld()->GetTimeSeconds() - LastDebugShapeSendTime > 0.4f && DebugIsMonitoring) {
+			// Have the server send rollback shape
 			AFPSTemplateCharacter* OtherPlayer = DebugFindOtherPlayer();
 			if (OtherPlayer != NULL) {
 				//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Ping at client: %f"), GetPingRaw()));
 				ServerRequestAnimState(OtherPlayer, OtherPlayer->RollbackDebug->AnimSaveCounter);
 				OtherPlayer->RollbackDebug->SaveLocalShapeForDebug();
 			} 
+
+			/*
+			AFPSTemplateCharacter* OtherPlayer = DebugFindOtherPlayer();
+			if (OtherPlayer != NULL) {
+				//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Ping at client: %f"), GetPingRaw()));
+
+				ServerStartLocalShapeTransmission(OtherPlayer, OtherPlayer->RollbackDebug->AnimSaveCounter);
+				for (int i = 0; i < OtherPlayer->ShapeManager->GetAllShapes().Num(); i++) {
+					PxRigidActor* PxActor = (PxRigidActor*)OtherPlayer->ShapeManager->GetAllShapes()[i]->getActor();
+					PxTransform ShapeGlobalPose = PxActor->getGlobalPose() * OtherPlayer->ShapeManager->GetAllShapes()[i]->getLocalPose();
+					ServerSendLocalShape(OtherPlayer, OtherPlayer->RollbackDebug->AnimSaveCounter, i, P2UVector(ShapeGlobalPose.p), P2UQuat(ShapeGlobalPose.q));
+				}
+				OtherPlayer->RollbackDebug->AnimSaveCounter++;
+				OtherPlayer->RollbackDebug->SaveLocalShapeForDebug();
+			} 
+			*/
+
+			// Send own shape to the server
 			LastDebugShapeSendTime = GetWorld()->GetTimeSeconds();
 		}
 	}
@@ -230,7 +249,7 @@ void URollbackDebugComponent::ServerStartLocalShapeTransmission_Implementation(A
 void URollbackDebugComponent::ServerSendLocalShape_Implementation(AFPSTemplateCharacter* Target, int Counter, int ShapeID,
 	FVector Position, FQuat Rotation)
 {
-	Target->RollbackDebug->OnReceiveRemoteShape(Counter, ShapeID, Position, Rotation);
+	Target->RollbackDebug->OnReceiveRemoteShape(OwnerCharacter, Counter, ShapeID, Position, Rotation);
 }
 
 void URollbackDebugComponent::ClientDisplayShapeTransform_Implementation(AFPSTemplateCharacter* Target, int ShapeID, 
@@ -258,10 +277,10 @@ void URollbackDebugComponent::ServerSendShapeTransforms(AFPSTemplateCharacter* T
 void URollbackDebugComponent::ClientSendRollbackShape_Implementation(AFPSTemplateCharacter* Target, int Counter, int ShapeID,
 	FVector Position, FQuat Rotation)
 {
-	Target->RollbackDebug->OnReceiveRemoteShape(Counter, ShapeID, Position, Rotation);
+	Target->RollbackDebug->OnReceiveRemoteShape(OwnerCharacter, Counter, ShapeID, Position, Rotation);
 }
 
-void URollbackDebugComponent::OnReceiveRemoteShape(int Counter, int ShapeID,
+void URollbackDebugComponent::OnReceiveRemoteShape(AFPSTemplateCharacter* MonitoringPlayer, int Counter, int ShapeID,
 	FVector Position, FQuat Rotation)
 {
 	while (PosesRemote.Num() < Counter + 1) {
@@ -273,7 +292,11 @@ void URollbackDebugComponent::OnReceiveRemoteShape(int Counter, int ShapeID,
 	if (PosesRemote[Counter].HasAddedAllTransforms()) {
 		// Remote pose assembly complete!
 
-		FindOptimalRollbackFudge(Counter);
+		/*
+		float OptimalFudge = FindOptimalRollbackFudge(Counter);
+		MonitoringPlayer->RollbackDebug->ClientSendDebugOptimalFudge(OptimalFudge, GetWorld()->GetTimeSeconds());
+		*/
+
 		/*
 		float HitRate = CalculateRandomHitRate(PosesRollback[Counter]);
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Hit rate: %f"), HitRate));
@@ -283,19 +306,63 @@ void URollbackDebugComponent::OnReceiveRemoteShape(int Counter, int ShapeID,
 	}
 }
 
-void URollbackDebugComponent::FindOptimalRollbackFudge(int Counter)
+void URollbackDebugComponent::ClientSendDebugOptimalFudge_Implementation(float OptimalFudge, float Time)
+{
+	RollbackLogger.LogOptimalFudge(OptimalFudge, Time);
+}
+
+float URollbackDebugComponent::FindOptimalRollbackFudge(int Counter)
 {
 	float Time = LocalPoseTimes[Counter];
 	RepAnimationSnapshot ClientPose = PosesRemote[Counter];
 	AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *)GetWorld()->GetAuthGameMode();
+	TMap<physx::PxShape*, physx::PxTransform> RollbackTransforms;
+	float BestFudgeFactor = 0.0f;
 	if (GameMode != NULL) {
-		GameMode->GetRepWorldTimelines().PreRollbackTarget((IRepMovable*) OwnerCharacter),
-		// REPEAT
-		GameMode->GetRepWorldTimelines().RollbackTarget((IRepMovable*) OwnerCharacter, GetWorld()->GetTimeSeconds(),
-			RepTimeline<RepSnapshot>::InterpolationOffset, OwnerCharacter->GetPing());
+		GameMode->GetRepWorldTimelines().PreRollbackTarget((IRepMovable*)OwnerCharacter);
+
+		// Essentially a binary search
+
+		int NumIterations = 10;
+		float MinFudgeFactor = -0.1f;
+		float MaxFudgeFactor = 0.1f;
+
+		for (int i = 0; i < NumIterations; i++) 			
+		{
+			float DiscrepancyScoreLower = 0.0f;
+			float DiscrepancyScoreUpper = 0.0f;
+
+			GameMode->GetRepWorldTimelines().RollbackTarget((IRepMovable*)OwnerCharacter, GetWorld()->GetTimeSeconds() + MinFudgeFactor,
+				RepTimeline<RepSnapshot>::InterpolationOffset, OwnerCharacter->GetPing());
+			RollbackTransforms.Empty();
+			OwnerCharacter->ShapeManager->SavePhysicsShapeTransformsGlobal(RollbackTransforms);
+			RepAnimationSnapshot RollbackPose(RollbackTransforms);
+			float AverageAngleDiscrepancy = RepAnimationSnapshot::GetAverageAngleDiscrepancy(ClientPose, RollbackPose);
+			float AveragePositionDiscrepancy = RepAnimationSnapshot::GetAveragePositionDiscrepancy(ClientPose, RollbackPose);
+			DiscrepancyScoreLower = AverageAngleDiscrepancy + AveragePositionDiscrepancy;
+
+			GameMode->GetRepWorldTimelines().RollbackTarget((IRepMovable*)OwnerCharacter, GetWorld()->GetTimeSeconds() + MaxFudgeFactor,
+				RepTimeline<RepSnapshot>::InterpolationOffset, OwnerCharacter->GetPing());
+			RollbackTransforms.Empty();
+			OwnerCharacter->ShapeManager->SavePhysicsShapeTransformsGlobal(RollbackTransforms);
+			RollbackPose = RepAnimationSnapshot(RollbackTransforms);
+			AverageAngleDiscrepancy = RepAnimationSnapshot::GetAverageAngleDiscrepancy(ClientPose, RollbackPose);
+			AveragePositionDiscrepancy = RepAnimationSnapshot::GetAveragePositionDiscrepancy(ClientPose, RollbackPose);
+			DiscrepancyScoreUpper = AverageAngleDiscrepancy + AveragePositionDiscrepancy;
+
+			if (DiscrepancyScoreLower < DiscrepancyScoreUpper) {
+				MaxFudgeFactor = (MinFudgeFactor + MaxFudgeFactor) / 2.0f;
+			} else {
+				MinFudgeFactor = (MinFudgeFactor + MaxFudgeFactor) / 2.0f;
+			}
+		}
+
+		BestFudgeFactor = (MinFudgeFactor + MaxFudgeFactor) / 2.0f;
+
 		// LOG BEST
 		GameMode->GetRepWorldTimelines().ResetTarget((IRepMovable*)OwnerCharacter);
 	}
+	return BestFudgeFactor;
 }
 
 void URollbackDebugComponent::RollbackDebugOffset(float Offset)
@@ -452,4 +519,3 @@ float URollbackDebugComponent::CalculateRandomHitRate(RepAnimationSnapshot& Roll
 
 	return (float) Matches / LocalHits;
 }
-

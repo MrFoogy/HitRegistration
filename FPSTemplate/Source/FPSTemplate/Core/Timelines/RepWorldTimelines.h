@@ -28,6 +28,7 @@ public:
 	virtual void RollbackTarget(IRepMovable* TargetMovable, float CurrentTime, float InterpolationOffset, float RTT);
 	virtual void ResetWorld(IRepMovable* ExcludedMovable);
 	virtual void ResetTarget(IRepMovable* TargetMovable);
+	virtual void RemoveRepObject(IRepMovable* RepObject);
 protected:
 	TArray<IRepMovable*> RepObjects;
 	TMap<IRepMovable*, RepTimeline<RepSnapshot>> MovementTimelines;

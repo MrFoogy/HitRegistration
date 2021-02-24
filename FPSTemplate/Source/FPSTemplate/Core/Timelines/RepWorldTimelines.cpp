@@ -88,3 +88,11 @@ void URepWorldTimelines::ResetTarget(IRepMovable* TargetMovable)
 {
 	TargetMovable->ResetRollback();
 }
+
+
+void URepWorldTimelines::RemoveRepObject(IRepMovable* RepObject)
+{
+	RepObjects.Remove(RepObject);
+	MovementTimelines.Remove(RepObject);
+	AnimationTimelines.Remove(RepObject);
+}

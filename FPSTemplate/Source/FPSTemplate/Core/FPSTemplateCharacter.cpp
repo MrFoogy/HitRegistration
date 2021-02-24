@@ -287,11 +287,13 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 		FVector ServerPosition = Target->GetActorLocation();
 		FQuat ServerRotation = Target->GetActorQuat();
 
-		GameMode->GetRepWorldTimelines().PreRollbackWorld((IRepMovable*)this), 
+		GameMode->GetRepWorldTimelines().PreRollbackWorld((IRepMovable*)this); 
 		GameMode->GetRepWorldTimelines().RollbackWorld((IRepMovable*)this, GetWorld()->GetTimeSeconds(), 
 			RepTimeline<RepSnapshot>::InterpolationOffset, GetPing());
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, FString::Printf(TEXT("Ping at server: %f"), GetPingRaw()));
+		// COLLISION TEST
 		RollbackDebug->ServerSendShapeTransforms(Target, ServerReplicationMessageType::RollbackState);
+
 		FVector RollbackPosition = Target->GetActorLocation();
 		FQuat RollbackRotation = Target->GetActorQuat();
 		GameMode->GetRepWorldTimelines().ResetWorld((IRepMovable*)this);
@@ -356,3 +358,12 @@ float AFPSTemplateCharacter::GetInterpolationTime()
 	return GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset;
 }
 
+void AFPSTemplateCharacter::StartDebugMovement()
+{
+	RollbackDebug->StartDebugMovement();
+}
+
+void AFPSTemplateCharacter::DebugStartMonitoring()
+{
+	RollbackDebug->DebugStartMonitoring();
+}

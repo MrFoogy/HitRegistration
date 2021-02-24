@@ -15,11 +15,14 @@ public:
 	~FRollbackLogger();
 
 	void CreateLogFile();
-	void WriteString(FString Str);
+	void WriteString(FString* Str, FString* FilePath);
 	void LogDiscrepancy(float Time, float RandomHitPrecision, RepAnimationSnapshot* LocalSnapshot, RepAnimationSnapshot* RollbackSnapshot);
+	void LogOptimalFudge(float Time, float OptimalFudge);
 	void DumpLogFile();
 
 protected:
-	FString FilePath;
-	FString LogString;
+	FString DiscrepancyFilePath;
+	FString OptimalFudgeFilePath;
+	FString DiscrepancyLogString;
+	FString OptimalFudgeLogString;
 };
