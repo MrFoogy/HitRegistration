@@ -18,7 +18,11 @@ public:
 	virtual ~URepWorldTimelines();
 
 	virtual void ClearWorldTimelines();
-	virtual void InitializeTimeline(IRepMovable* RepMovable);
+	virtual void AddRepObject(IRepMovable* RepMovable);
+	virtual void RemoveRepObject(IRepMovable* RepObject);
+	virtual void CreateMovementTimeline(IRepMovable* RepMovable);
+	virtual void CreateAnimationTimeline(IRepMovable* RepMovable);
+
 	virtual bool HasTimeline(IRepMovable* RepMovable) const;
 	virtual RepTimeline<RepSnapshot>& GetMovementTimeline(IRepMovable* RepMovable);
 	virtual RepTimeline<RepAnimationSnapshot>& GetAnimationTimeline(IRepMovable* RepMovable);
@@ -28,7 +32,6 @@ public:
 	virtual void RollbackTarget(IRepMovable* TargetMovable, float CurrentTime, float InterpolationOffset, float RTT);
 	virtual void ResetWorld(IRepMovable* ExcludedMovable);
 	virtual void ResetTarget(IRepMovable* TargetMovable);
-	virtual void RemoveRepObject(IRepMovable* RepObject);
 protected:
 	TArray<IRepMovable*> RepObjects;
 	TMap<IRepMovable*, RepTimeline<RepSnapshot>> MovementTimelines;

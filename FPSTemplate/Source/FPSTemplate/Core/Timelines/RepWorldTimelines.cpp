@@ -17,10 +17,25 @@ void URepWorldTimelines::ClearWorldTimelines()
 	AnimationTimelines.Empty();
 }
 
-void URepWorldTimelines::InitializeTimeline(IRepMovable* RepMovable)
+void URepWorldTimelines::AddRepObject(IRepMovable* RepMovable)
 {
 	RepObjects.Add(RepMovable);
+}
+
+void URepWorldTimelines::RemoveRepObject(IRepMovable* RepObject)
+{
+	RepObjects.Remove(RepObject);
+	MovementTimelines.Remove(RepObject);
+	AnimationTimelines.Remove(RepObject);
+}
+
+void URepWorldTimelines::CreateMovementTimeline(IRepMovable* RepMovable)
+{
 	MovementTimelines.Add(RepMovable, RepTimeline<RepSnapshot>());
+}
+
+void URepWorldTimelines::CreateAnimationTimeline(IRepMovable* RepMovable)
+{
 	AnimationTimelines.Add(RepMovable, RepTimeline<RepAnimationSnapshot>());
 }
 
@@ -89,10 +104,3 @@ void URepWorldTimelines::ResetTarget(IRepMovable* TargetMovable)
 	TargetMovable->ResetRollback();
 }
 
-
-void URepWorldTimelines::RemoveRepObject(IRepMovable* RepObject)
-{
-	RepObjects.Remove(RepObject);
-	MovementTimelines.Remove(RepObject);
-	AnimationTimelines.Remove(RepObject);
-}

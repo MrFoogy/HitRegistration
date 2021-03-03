@@ -88,6 +88,10 @@ void AFPSTemplateCharacter::BeginPlay()
 	}
 	ShapeManager->SavePhysicsShapeTransformsLocal(OriginalShapeTransforms);
 
+	AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode*)GetWorld()->GetAuthGameMode();
+	if (GameMode != NULL) {
+		GameMode->GetRepWorldTimelines().AddRepObject((IRepMovable*)this);
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -246,6 +250,7 @@ void AFPSTemplateCharacter::PreReplication(IRepChangedPropertyTracker & ChangedP
 	if (GetLocalRole() == ROLE_Authority)
 	{
 		// Add a movement snapshot
+		/*
 		AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *) GetWorld()->GetAuthGameMode();
 		if (GameMode != NULL) 
 		{
@@ -255,6 +260,7 @@ void AFPSTemplateCharacter::PreReplication(IRepChangedPropertyTracker & ChangedP
 			Timeline.AddSnapshot(RepSnapshot(GetReplicatedMovement().Location, GetReplicatedMovement().Rotation.Quaternion(), 
 				GetReplicatedMovement().LinearVelocity), GetWorld()->GetTimeSeconds());
 		}
+		*/
 
 		// Update the RepViewRotation member for replication
 		RepViewRotation = GetController()->GetControlRotation();

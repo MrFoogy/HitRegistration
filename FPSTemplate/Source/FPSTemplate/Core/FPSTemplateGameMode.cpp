@@ -25,7 +25,7 @@ void AFPSTemplateGameMode::StartPlay()
 RepTimeline<RepSnapshot>& AFPSTemplateGameMode::GetRepMovementTimeline(IRepMovable* RepMovable)
 {
 	if (!RepWorldTimelines.HasTimeline(RepMovable)) {
-		RepWorldTimelines.InitializeTimeline(RepMovable);
+		RepWorldTimelines.CreateMovementTimeline(RepMovable);
 	}
 	return RepWorldTimelines.GetMovementTimeline(RepMovable);
 }
@@ -33,7 +33,7 @@ RepTimeline<RepSnapshot>& AFPSTemplateGameMode::GetRepMovementTimeline(IRepMovab
 RepTimeline<RepAnimationSnapshot>& AFPSTemplateGameMode::GetRepAnimationTimeline(IRepMovable* RepMovable)
 {
 	if (!RepWorldTimelines.HasTimeline(RepMovable)) {
-		RepWorldTimelines.InitializeTimeline(RepMovable);
+		RepWorldTimelines.CreateAnimationTimeline(RepMovable);
 	}
 	return RepWorldTimelines.GetAnimationTimeline(RepMovable);
 }

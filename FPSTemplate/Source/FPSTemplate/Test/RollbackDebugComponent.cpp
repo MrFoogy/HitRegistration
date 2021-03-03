@@ -112,6 +112,7 @@ void URollbackDebugComponent::TickComponent(float DeltaTime, ELevelTick TickType
 		}
 		//GetWorld()->GetGameState()->PlayerArray[0]->GetPawn<AFPSTemplateCharacter>();
 		if (GetWorld()->GetTimeSeconds() - LastDebugShapeSendTime > 0.4f && DebugIsMonitoring) {
+			/*
 			// Have the server send rollback shape
 			AFPSTemplateCharacter* OtherPlayer = DebugFindOtherPlayer();
 			if (OtherPlayer != NULL) {
@@ -119,8 +120,8 @@ void URollbackDebugComponent::TickComponent(float DeltaTime, ELevelTick TickType
 				ServerRequestAnimState(OtherPlayer, OtherPlayer->RollbackDebug->AnimSaveCounter);
 				OtherPlayer->RollbackDebug->SaveLocalShapeForDebug();
 			} 
+			*/
 
-			/*
 			AFPSTemplateCharacter* OtherPlayer = DebugFindOtherPlayer();
 			if (OtherPlayer != NULL) {
 				//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Ping at client: %f"), GetPingRaw()));
@@ -134,7 +135,6 @@ void URollbackDebugComponent::TickComponent(float DeltaTime, ELevelTick TickType
 				OtherPlayer->RollbackDebug->AnimSaveCounter++;
 				OtherPlayer->RollbackDebug->SaveLocalShapeForDebug();
 			} 
-			*/
 
 			// Send own shape to the server
 			LastDebugShapeSendTime = GetWorld()->GetTimeSeconds();
@@ -292,10 +292,8 @@ void URollbackDebugComponent::OnReceiveRemoteShape(AFPSTemplateCharacter* Monito
 	if (PosesRemote[Counter].HasAddedAllTransforms()) {
 		// Remote pose assembly complete!
 
-		/*
 		float OptimalFudge = FindOptimalRollbackFudge(Counter);
 		MonitoringPlayer->RollbackDebug->ClientSendDebugOptimalFudge(OptimalFudge, GetWorld()->GetTimeSeconds());
-		*/
 
 		/*
 		float HitRate = CalculateRandomHitRate(PosesRollback[Counter]);
