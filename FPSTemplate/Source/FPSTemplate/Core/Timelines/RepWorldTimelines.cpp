@@ -39,9 +39,14 @@ void URepWorldTimelines::CreateAnimationTimeline(IRepMovable* RepMovable)
 	AnimationTimelines.Add(RepMovable, RepTimeline<RepAnimationSnapshot>());
 }
 
-bool URepWorldTimelines::HasTimeline(IRepMovable* RepMovable) const
+bool URepWorldTimelines::HasMovementTimeline(IRepMovable* RepMovable) const
 {
 	return MovementTimelines.Contains(RepMovable);
+}
+
+bool URepWorldTimelines::HasAnimationTimeline(IRepMovable* RepMovable) const
+{
+	return AnimationTimelines.Contains(RepMovable);
 }
 
 RepTimeline<RepSnapshot>& URepWorldTimelines::GetMovementTimeline(IRepMovable* RepMovable)

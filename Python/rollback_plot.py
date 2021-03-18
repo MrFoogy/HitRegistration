@@ -18,6 +18,8 @@ def parse_data_for_stat(time_data, stat_key, process_data_fn = None):
         res[0].append(float(time_str))
         p = re.compile('(?<=' + stat_key + ').*(?=\n)')
         matches = p.findall(d)
+        if not matches:
+            return None
         float_vals = [float(v) for v in matches]
         if process_data_fn:
             float_vals = [process_data_fn(v) for v in float_vals]
@@ -25,6 +27,11 @@ def parse_data_for_stat(time_data, stat_key, process_data_fn = None):
         res[1].append(average)
     return res
 
+def find_nth(string, substring, n):
+   if (n == 1):
+       return string.find(substring)
+   else:
+       return string.find(substring, find_nth(string, substring, n - 1) + 1)
 
 def plot_data(ax, data, title, x_label, y_label, y_range):
     ax.set_title(title)
@@ -33,18 +40,17 @@ def plot_data(ax, data, title, x_label, y_label, y_range):
     ax.set_ylim(y_range[0], y_range[1])
     ax.plot(data[0], data[1])
 
-def get_latest_filenames(num):
+def get_latest_filenames(num, log_type):
     date_format = "%Y.%m.%d-%H.%M.%S"
-    date_strings = [filename[:-8] for filename in os.listdir(logs_path)]
-    print(os.listdir(logs_path))
+    date_strings = [filename[:find_nth(filename, "-", 2)] for filename in os.listdir(logs_path)]
     dates = [datetime.strptime(date_string, date_format) for date_string in date_strings]
     sorted_dates = sorted(dates, reverse=True)
     latest_dates = sorted_dates[:num]
-    return [(logs_path + datetime.strftime(date, date_format) + "-Log.txt") for date in latest_dates]
+    return [(logs_path + datetime.strftime(date, date_format) + "-" + log_type + "Log.txt") for date in latest_dates]
 
 if __name__ == "__main__":
-    short_options = "ln:"
-    long_options = ["latest", "num="]
+    short_options = "ln:t:"
+    long_options = ["latest", "num=", "type="]
     full_cmd_arguments = sys.argv
     argument_list = full_cmd_arguments[1:]
     try:
@@ -53,16 +59,18 @@ if __name__ == "__main__":
         print(str(err))
         sys.exit(2)
     file_names = []
-    print(arguments)
     if len(arguments) > 0:
         num_files = 1
         use_latest = False
+        log_type = "Discrepancy"
         for current_argument, current_value in arguments:
             if current_argument in ("--latest", "-l"):
                 use_latest = True
             if current_argument in ("--num", "-n"):
                 num_files = int(current_value)
-        file_names = get_latest_filenames(num_files)
+            if current_argument in ("--type", "-t"):
+                log_type = current_value
+        file_names = get_latest_filenames(num_files, log_type)
     else:
         file_names = sys.argv[1:]
         
@@ -76,13 +84,20 @@ if __name__ == "__main__":
 
 
         angle_data = parse_data_for_stat(time_data, "Angle: ", lambda x : math.degrees(x))
-        plot_data(ax[0], angle_data, "Average rollback angle discrepancy", "Time (s)", "Angle (degrees)", (0, 50))
+        if angle_data:
+            plot_data(ax[0], angle_data, "Average rollback angle discrepancy", "Time (s)", "Angle (degrees)", (0, 50))
 
         distance_data = parse_data_for_stat(time_data, "Distance: ")
-        plot_data(ax[1], distance_data, "Average rollback position discrepancy", "Time (s)", "Distance (cm)", (0, 50))
+        if distance_data:
+            plot_data(ax[1], distance_data, "Average rollback position discrepancy", "Time (s)", "Distance (cm)", (0, 50))
 
-        distance_data = parse_data_for_stat(time_data, "Precision: ")
-        plot_data(ax[2], distance_data, "Random Hit Precision", "Time (s)", "Precision", (0, 1))
+        precision_data = parse_data_for_stat(time_data, "Precision: ")
+        if precision_data:
+            plot_data(ax[2], precision_data, "Random Hit Precision", "Time (s)", "Precision", (0, 1))
+
+        fudge_data = parse_data_for_stat(time_data, "OptimalFudge: ")
+        if fudge_data:
+            plot_data(ax[2], fudge_data, "Optimal Fudge Factor", "Time (s)", "Fudge Factor", (0, 0.1))
     #print(time_data)
     plt.show()
 

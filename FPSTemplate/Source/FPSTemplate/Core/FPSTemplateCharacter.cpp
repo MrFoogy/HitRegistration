@@ -167,8 +167,8 @@ void AFPSTemplateCharacter::OnFire()
 		AFPSTemplateCharacter* HitPlayer = Cast<AFPSTemplateCharacter>(Hit.GetActor());
 		if (HitPlayer != NULL) {
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Hit: %s"), *Hit.BoneName.ToString()));
-			DrawDebugBox(GetWorld(), HitPlayer->GetActorLocation(), FVector(60.0f, 30.0f, 45.0f), HitPlayer->GetActorQuat(), FColor::Orange, false, 5.0f);
-			HitPlayer->ShapeManager->DrawHitboxes(FColor::Orange, 5.0f);
+			//DrawDebugBox(GetWorld(), HitPlayer->GetActorLocation(), FVector(60.0f, 30.0f, 45.0f), HitPlayer->GetActorQuat(), FColor::Orange, false, 5.0f);
+			//HitPlayer->ShapeManager->DrawHitboxes(FColor::Orange, 5.0f);
 			ServerFire(HitPlayer);
 		}
 	}
@@ -312,12 +312,14 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 void AFPSTemplateCharacter::ClientConfirmHit_Implementation(AFPSTemplateCharacter* HitPlayer, FVector RollbackPosition, 
 	FQuat RollbackRotation, FVector ServerPosition, FQuat ServerRotation)
 {
+	/*
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("Hit fire time: %d %d"), FDateTime::UtcNow().GetSecond(), 
 		FDateTime::UtcNow().GetMillisecond()));
 	DrawDebugBox(GetWorld(), RollbackPosition , FVector(60.0f, 30.0f, 45.0f), RollbackRotation, FColor::Yellow, false, 5.0f);
 	DrawDebugBox(GetWorld(), ServerPosition , FVector(60.0f, 30.0f, 45.0f), ServerRotation, FColor::Green, false, 5.0f);
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Player: %s"), *RollbackPosition.ToString()));
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("Player: %s"), *ServerPosition.ToString()));
+	*/
 }
 
 void AFPSTemplateCharacter::PrepareRollback()

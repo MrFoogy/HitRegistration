@@ -65,7 +65,6 @@ float RepAnimationSnapshot::GetAverageAngleDiscrepancy(const RepAnimationSnapsho
 		float AngleDiff = Transform1.q.getAngle(Transform2.q);
 		AngleDiff = FMath::Min(AngleDiff, 2.0f * UKismetMathLibrary::GetPI() - AngleDiff);
 		TotalAngleDiff += AngleDiff;
-		float DistDiff = (Transform1.p - Transform2.p).magnitude();
 	}
 	return TotalAngleDiff / Snapshot1.GetShapeTransforms().Num();
 }
@@ -77,7 +76,6 @@ float RepAnimationSnapshot::GetAveragePositionDiscrepancy(const RepAnimationSnap
 		physx::PxShape* Shape = KV.Key;
 		physx::PxTransform Transform1 = Snapshot1.GetShapeTransforms()[Shape];
 		physx::PxTransform Transform2 = Snapshot2.GetShapeTransforms()[Shape];
-		float AngleDiff = Transform1.q.getAngle(Transform2.q);
 		float DistDiff = (Transform1.p - Transform2.p).magnitude();
 		TotalDistDiff += DistDiff;
 	}

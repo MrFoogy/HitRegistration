@@ -20,32 +20,6 @@ void UShapeManagerComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Store the shapes
-	auto ShapeFunction = [&ShapesArray = AllShapes, &IDMap = ShapeIDs](physx::PxRigidActor* PxActor, physx::PxShape* PxShape, int ID)
-	{
-		physx::PxTransform ActorGlobalPose = PxActor->getGlobalPose();
-		physx::PxTransform ShapeGlobalPose = ActorGlobalPose * PxShape->getLocalPose();
-		if (ShapesArray.Num() < ID + 1) {
-			ShapesArray.SetNum(ID + 1);
-		}
-		ShapesArray[ID] = PxShape;
-		IDMap.Add(PxShape, ID);
-	};
-	PerformPhysicsShapeOperation(ShapeFunction);
-}
-
-
-// Called every frame
-void UShapeManagerComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// ...
-}
-
-template<typename F>
-void UShapeManagerComponent::PerformPhysicsShapeOperation(F Function)
-{
 	FBodyInstance* PhysicsBody = ShapeSourceMesh->GetBodyInstance();
 	PxScene* Scene = GetWorld()->GetPhysicsScene()->GetPxScene();
 	TArray<FPhysicsShapeHandle> collisionShapes;
@@ -60,6 +34,9 @@ void UShapeManagerComponent::PerformPhysicsShapeOperation(F Function)
 	physx::PxShape* PxShapes[10];
 	int FoundActors = collisionShapes[0].Shape->getActor()->getAggregate()->getActors(PxActors, NumActors);
 
+	// FOR DEBUG
+	int MaxShapes = 3;
+
 	// For each PxActor, find all its shapes and execute the input function
 	int Index = 0;
 	for (int i = 0; i < FoundActors; i++) {
@@ -67,11 +44,33 @@ void UShapeManagerComponent::PerformPhysicsShapeOperation(F Function)
 		if (RigidActor == NULL) continue;
 		int FoundShapes = RigidActor->getShapes(PxShapes, 10);
 		for (int j = 0; j < FoundShapes; j++) {
-			Function(RigidActor, PxShapes[j], Index);
+			if (AllShapes.Num() >= MaxShapes) continue;
+			if (AllShapes.Num() < Index + 1) {
+				AllShapes.SetNum(Index + 1);
+			}
+			AllShapes[Index] = PxShapes[j];
+			ShapeIDs.Add(PxShapes[j], Index);
 			Index++;
 		}
 	}
 	delete[] PxActors;
+}
+
+
+// Called every frame
+void UShapeManagerComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// ...
+}
+
+template<typename F>
+void UShapeManagerComponent::PerformPhysicsShapeOperation(F Function)
+{
+	for (int i = 0; i < AllShapes.Num(); i++) {
+		Function(AllShapes[i]->getActor(), AllShapes[i], i);
+	}
 }
 
 void UShapeManagerComponent::DrawHitboxes(const FColor& Color, float LifeTime) 

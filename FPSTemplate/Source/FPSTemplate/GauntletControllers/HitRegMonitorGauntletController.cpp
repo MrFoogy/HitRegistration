@@ -55,7 +55,7 @@ void UHitRegMonitorGauntletController::OnTick(float DeltaTime)
 
 void UHitRegMonitorGauntletController::RecordResults()
 {
-    Character->RollbackDebug->DebugFindOtherPlayer()->RollbackDebug->SaveRollbackLog();
+    Character->RollbackDebug->SaveRollbackLog();
     UE_LOG(LogGauntlet, Display, TEXT("Written log!"));
 	FTimerHandle dummy;
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMonitorGauntletController::StopTesting, ShutDownTime, false);

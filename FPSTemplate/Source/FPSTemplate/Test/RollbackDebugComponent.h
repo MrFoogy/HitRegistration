@@ -49,10 +49,10 @@ public:
 	void ServerSetReplicationOffset(float Offset);
 
 	UFUNCTION(Client, Reliable)
-	void ClientDisplayShapeTransform(AFPSTemplateCharacter* Target, int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type);
+	void ClientDisplayShapeTransform(AFPSTemplateCharacter* Target, int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type, float duration);
 
 	UFUNCTION(Client, Reliable)
-	void ClientSendDebugOptimalFudge(float OptimalFudge, float Time);
+	void ClientSendDebugOptimalFudge(float Time, float OptimalFudge, float OptimalAngDiff, float OptimalPosDiff);
 
 	void DebugStartMonitoring();
 
@@ -70,6 +70,8 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 protected:
+	bool IsMonitoringDiscrepancy = false;
+
 	AFPSTemplateCharacter* OwnerCharacter;
 
 	TArray<RepAnimationSnapshot> PosesLocal;
@@ -100,11 +102,13 @@ protected:
 	float CalculateRandomHitRate(RepAnimationSnapshot& RollbackSnapshot);
 	bool TestHitFromRay(const FRay& Ray);
 
-	float FindOptimalRollbackFudge(int Counter);
+	void FindOptimalRollbackFudge(int Counter, float& OptimalFudge, float& OptimalAngDiff, float& OptimalPosDiff);
 
 public:
 	virtual void ServerSendShapeTransforms(AFPSTemplateCharacter* Target, ServerReplicationMessageType Type);
-	virtual void DisplayShapeTransform(int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type);
+	virtual void DisplayShapeTransform(int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type, float Duration);
+
+	void SaveLocalPose(int Counter);
 
 	int AnimSaveCounter = 0;
 
@@ -112,7 +116,8 @@ public:
 	void OnStartScoping();
 	void OnStopScoping();
 
-	void OnReceiveRemoteShape(AFPSTemplateCharacter* MonitoringPlayer, int Counter, int ShapeID, FVector Position, FQuat Rotation);
+	void OnServerReceiveRemoteShape(AFPSTemplateCharacter* MonitoringPlayer, int Counter, int ShapeID, FVector Position, FQuat Rotation);
+	void OnClientReceiveRemoteShape(AFPSTemplateCharacter* MonitoringPlayer, int Counter, int ShapeID, FVector Position, FQuat Rotation);
 
 	void DebugPrepareMonitoredTest();
 	void DebugPrepareMonitoringTest();

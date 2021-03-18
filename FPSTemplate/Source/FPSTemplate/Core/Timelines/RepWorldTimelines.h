@@ -23,7 +23,8 @@ public:
 	virtual void CreateMovementTimeline(IRepMovable* RepMovable);
 	virtual void CreateAnimationTimeline(IRepMovable* RepMovable);
 
-	virtual bool HasTimeline(IRepMovable* RepMovable) const;
+	virtual bool HasMovementTimeline(IRepMovable* RepMovable) const;
+	virtual bool HasAnimationTimeline(IRepMovable* RepMovable) const;
 	virtual RepTimeline<RepSnapshot>& GetMovementTimeline(IRepMovable* RepMovable);
 	virtual RepTimeline<RepAnimationSnapshot>& GetAnimationTimeline(IRepMovable* RepMovable);
 	virtual void PreRollbackWorld(IRepMovable* ExcludedMovable);

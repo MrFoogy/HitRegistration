@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
+#include "GauntletModule.h"
 #include "Test/RollbackLogger.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
@@ -36,9 +37,12 @@ void FRollbackLogger::DumpLogFile()
 	UE_LOG(LogTemp, Warning, TEXT("Log: %s"), *DiscrepancyLogString);
 	if (DiscrepancyLogString.Len() > 0) {
 		WriteString(&DiscrepancyLogString, &DiscrepancyFilePath);
+		UE_LOG(LogGauntlet, Display, TEXT("Written disc log!"));
 	}
 	if (OptimalFudgeLogString.Len() > 0) {
 		WriteString(&OptimalFudgeLogString, &OptimalFudgeFilePath);
+		UE_LOG(LogGauntlet, Display, TEXT("Written fudge log!"));
+		UE_LOG(LogGauntlet, Display, TEXT("Written to %s"), *OptimalFudgeFilePath);
 	}
 }
 
@@ -58,8 +62,10 @@ void FRollbackLogger::LogDiscrepancy(float Time, float RandomHitPrecision, RepAn
 	}
 }
 
-void FRollbackLogger::LogOptimalFudge(float Time, float OptimalFudge)
+void FRollbackLogger::LogOptimalFudge(float Time, float OptimalFudge, float OptimalAngDiff, float OptimalPosDiff)
 {
 	OptimalFudgeLogString += FString::Printf(TEXT("Time: %f\n"), Time);
 	OptimalFudgeLogString += FString::Printf(TEXT("OptimalFudge: %f\n"), OptimalFudge);
+	OptimalFudgeLogString += FString::Printf(TEXT("Angle: %f\n"), OptimalAngDiff);
+	OptimalFudgeLogString += FString::Printf(TEXT("Distance: %f\n"), OptimalPosDiff);
 }
