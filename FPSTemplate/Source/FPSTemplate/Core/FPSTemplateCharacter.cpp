@@ -213,8 +213,13 @@ void AFPSTemplateCharacter::OnRep_ReplicatedMovement()
 	// TODO: by overriding this, the movement state / animation systems don't seem to work properly
 	//UE_LOG(LogTemp, Warning, TEXT("Receive at: %f"), GetWorld()->GetTimeSeconds());
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
-	FVector NewLocation = FRepMovement::RebaseOntoLocalOrigin(GetReplicatedMovement().Location, this);
-	MovementComponent->OnReceiveServerUpdate(NewLocation, GetReplicatedMovement().Rotation.Quaternion(), GetReplicatedMovement().LinearVelocity, NetUpdateFrequency);
+	if (MovementComponent->UsesInterpolation) {
+		FVector NewLocation = FRepMovement::RebaseOntoLocalOrigin(GetReplicatedMovement().Location, this);
+		MovementComponent->OnReceiveServerUpdate(NewLocation, GetReplicatedMovement().Rotation.Quaternion(), GetReplicatedMovement().LinearVelocity, NetUpdateFrequency);
+	}
+	else {
+		Super::OnRep_ReplicatedMovement();
+	}
 }
 
 void AFPSTemplateCharacter::OnRep_RepViewRotation()
@@ -225,18 +230,22 @@ void AFPSTemplateCharacter::OnRep_RepViewRotation()
 
 FRotator AFPSTemplateCharacter::GetViewRotation()
 {
+	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
 	if (GetController() != NULL) {
 		return GetController()->GetControlRotation();
 	}
-	else {
+	else if (MovementComponent->UsesInterpolation) {
 		return RepViewRotationTimeline.GetSnapshot(GetInterpolationTime()).ViewRotation;
+	}
+	else {
+		return RepViewRotation;
 	}
 }
 
 FVector AFPSTemplateCharacter::GetPlayerVelocity()
 {
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
-	if (GetLocalRole() != ROLE_SimulatedProxy) {
+	if (GetLocalRole() != ROLE_SimulatedProxy || !MovementComponent->UsesInterpolation) {
 		return MovementComponent->Velocity;
 	}
 	else {
@@ -293,9 +302,13 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 		FVector ServerPosition = Target->GetActorLocation();
 		FQuat ServerRotation = Target->GetActorQuat();
 
+		UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
+		// TODO: handle this better
+		bool IsWorldInterpolated = MovementComponent->UsesInterpolation;
+
 		GameMode->GetRepWorldTimelines().PreRollbackWorld((IRepMovable*)this); 
 		GameMode->GetRepWorldTimelines().RollbackWorld((IRepMovable*)this, GetWorld()->GetTimeSeconds(), 
-			RepTimeline<RepSnapshot>::InterpolationOffset, GetPing());
+			RepTimeline<RepSnapshot>::InterpolationOffset, GetPing(), IsWorldInterpolated);
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, FString::Printf(TEXT("Ping at server: %f"), GetPingRaw()));
 		// COLLISION TEST
 		RollbackDebug->ServerSendShapeTransforms(Target, ServerReplicationMessageType::RollbackState);
@@ -358,7 +371,7 @@ float AFPSTemplateCharacter::GetPing()
 
 float AFPSTemplateCharacter::GetPingRaw()
 {
-	return GetPlayerState()->Ping;
+	return GetPlayerState()->Ping * 4.0f;
 }
 
 float AFPSTemplateCharacter::GetInterpolationTime()
@@ -368,10 +381,15 @@ float AFPSTemplateCharacter::GetInterpolationTime()
 
 void AFPSTemplateCharacter::StartDebugMovement()
 {
-	RollbackDebug->StartDebugMovement();
+	RollbackDebug->StartDebugMovement(AutomatedMovementType::MoveStraight);
 }
 
 void AFPSTemplateCharacter::DebugStartMonitoring()
 {
 	RollbackDebug->DebugStartMonitoring();
+}
+
+void AFPSTemplateCharacter::DebugSetServerLatency(int Latency)
+{
+	RollbackDebug->ServerSetLatency(Latency);
 }

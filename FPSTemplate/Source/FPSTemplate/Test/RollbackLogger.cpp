@@ -62,9 +62,10 @@ void FRollbackLogger::LogDiscrepancy(float Time, float RandomHitPrecision, RepAn
 	}
 }
 
-void FRollbackLogger::LogOptimalFudge(float Time, float OptimalFudge, float OptimalAngDiff, float OptimalPosDiff)
+void FRollbackLogger::LogOptimalFudge(float Time, float OptimalFudge, float OptimalAngDiff, float OptimalPosDiff, float TransmissionTime)
 {
 	OptimalFudgeLogString += FString::Printf(TEXT("Time: %f\n"), Time);
+	OptimalFudgeLogString += FString::Printf(TEXT("Transmission: %f\n"), TransmissionTime);
 	OptimalFudgeLogString += FString::Printf(TEXT("OptimalFudge: %f\n"), OptimalFudge);
 	OptimalFudgeLogString += FString::Printf(TEXT("Angle: %f\n"), OptimalAngDiff);
 	OptimalFudgeLogString += FString::Printf(TEXT("Distance: %f\n"), OptimalPosDiff);

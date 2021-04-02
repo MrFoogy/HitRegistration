@@ -22,11 +22,24 @@ void UHitRegMoveGauntletController::PrepareTest()
     APlayerController* PlayerController = GetFirstPlayerController();
     Character = (AFPSTemplateCharacter*)PlayerController->GetPawn();
     Character->RollbackDebug->DebugPrepareMonitoredTest();
+    FString MovementParam;
+
+    //string
+    if (FParse::Value(FCommandLine::Get(), TEXT("MovementType"), MovementParam)) {
+        MovementParam = MovementParam.Replace(TEXT("="), TEXT("")).Replace(TEXT("\""), TEXT(""));
+    }
+    MovementType = AutomatedMovementType::None;
+    if (MovementParam == "Straight") {
+        MovementType = AutomatedMovementType::MoveStraight;
+    }
+    if (MovementParam == "Alternate") {
+        MovementType = AutomatedMovementType::Alternate;
+    }
 }
 
 void UHitRegMoveGauntletController::StartTesting()
 {
-    Character->RollbackDebug->StartDebugMovement();
+    Character->RollbackDebug->StartDebugMovement(MovementType);
     FTimerHandle dummy;
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMoveGauntletController::StopTesting, TestDuration + ShutDownTime, false);
     /*

@@ -22,6 +22,8 @@ public:
 	virtual RepTimeline<RepAnimationSnapshot>& GetRepAnimationTimeline(IRepMovable* RepMovable);
 	virtual URepWorldTimelines& GetRepWorldTimelines();
 
+	bool ShouldUseRollback = true;
+
 protected:
 	URepWorldTimelines RepWorldTimelines;
 };

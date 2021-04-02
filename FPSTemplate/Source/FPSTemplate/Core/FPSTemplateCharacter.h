@@ -99,6 +99,9 @@ public:
 	FVector GetPlayerVelocity();
 
 	UFUNCTION(Exec, Category = ExecFunctions)
+	void DebugSetServerLatency(int Latency);
+
+	UFUNCTION(Exec, Category = ExecFunctions)
 	void DebugStartMonitoring();
 
 	UFUNCTION(Exec, Category = ExecFunctions)
@@ -144,7 +147,6 @@ public:
 public:
 	UFUNCTION(Server, Reliable)
 	void ServerFire(AFPSTemplateCharacter* Target);
-
 
 	UFUNCTION(Client, Reliable)
 	void ClientConfirmHit(AFPSTemplateCharacter* HitPlayer, FVector RollbackPosition, FQuat RollbackRotation, FVector ServerPosition, FQuat ServerRotation);

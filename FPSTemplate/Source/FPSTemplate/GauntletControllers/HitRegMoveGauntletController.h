@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Core/FPSTemplateCharacter.h"
 #include "GauntletTestController.h"
+#include "Test/RollbackDebugComponent.h"
 #include "HitRegMoveGauntletController.generated.h"
 
 /**
@@ -28,6 +29,7 @@ private:
 	const float ShutDownTime = 1.f;
 
 	AFPSTemplateCharacter* Character;
+	AutomatedMovementType MovementType;
 
 	UFUNCTION()
 	void PrepareTest();

@@ -20,6 +20,7 @@ void AFPSTemplateGameMode::StartPlay()
 {
 	Super::StartPlay();
 	RepWorldTimelines.ClearWorldTimelines();
+
 }
 
 RepTimeline<RepSnapshot>& AFPSTemplateGameMode::GetRepMovementTimeline(IRepMovable* RepMovable)

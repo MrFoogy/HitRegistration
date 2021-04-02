@@ -75,7 +75,7 @@ if __name__ == "__main__":
         file_names = sys.argv[1:]
         
 
-    fig, ax = plt.subplots(3)
+    fig, ax = plt.subplots(4)
     for file_name in file_names:
         f = open(file_name)
         text_data = f.read()
@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
         distance_data = parse_data_for_stat(time_data, "Distance: ")
         if distance_data:
-            plot_data(ax[1], distance_data, "Average rollback position discrepancy", "Time (s)", "Distance (cm)", (0, 50))
+            plot_data(ax[1], distance_data, "Average rollback position discrepancy", "Time (s)", "Distance (cm)", (0, 100))
 
         precision_data = parse_data_for_stat(time_data, "Precision: ")
         if precision_data:
@@ -97,7 +97,11 @@ if __name__ == "__main__":
 
         fudge_data = parse_data_for_stat(time_data, "OptimalFudge: ")
         if fudge_data:
-            plot_data(ax[2], fudge_data, "Optimal Fudge Factor", "Time (s)", "Fudge Factor", (0, 0.1))
+            plot_data(ax[2], fudge_data, "Optimal Fudge Factor", "Time (s)", "Fudge Factor", (0, 1.0))
+
+        transmission_data = parse_data_for_stat(time_data, "Transmission: ")
+        if transmission_data:
+            plot_data(ax[3], transmission_data, "Transmission Time", "Time (s)", "Time (s)", (0, 1.0))
     #print(time_data)
     plt.show()
 

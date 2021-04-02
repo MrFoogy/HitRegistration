@@ -18,10 +18,30 @@ void UHitRegMonitorGauntletController::OnInit()
 void UHitRegMonitorGauntletController::PrepareTest()
 {
 	FTimerHandle dummy;
+
+    bool UseInterpolation = false;
+    bool MonitorDiscrepancy = true;
+    FString InterpolationParam;
+    FString MonitorTypeParam;
+
+    if (FParse::Value(FCommandLine::Get(), TEXT("Interpolation"), InterpolationParam)) {
+        InterpolationParam = InterpolationParam.Replace(TEXT("="), TEXT("")).Replace(TEXT("\""), TEXT("")); 
+    }
+    if (InterpolationParam == "True" || InterpolationParam == "true") {
+        UseInterpolation = true;
+    }
+    if (FParse::Value(FCommandLine::Get(), TEXT("MonitorType"), MonitorTypeParam)) {
+        MonitorTypeParam = MonitorTypeParam.Replace(TEXT("="), TEXT("")).Replace(TEXT("\""), TEXT(""));
+    }
+    if (MonitorTypeParam == "Fudge" || MonitorTypeParam == "fudge") {
+        MonitorDiscrepancy = false;
+    }
+
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMonitorGauntletController::StartTesting, PrepareTime, false);
     APlayerController* PlayerController = GetFirstPlayerController();
     Character = (AFPSTemplateCharacter*)PlayerController->GetPawn();
-    Character->RollbackDebug->DebugPrepareMonitoringTest();
+    Character->RollbackDebug->DebugPrepareMonitoringTest(UseInterpolation);
+    Character->RollbackDebug->IsMonitoringDiscrepancy = MonitorDiscrepancy;
 }
 
 void UHitRegMonitorGauntletController::StartTesting()

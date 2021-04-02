@@ -35,7 +35,7 @@ void UShapeManagerComponent::BeginPlay()
 	int FoundActors = collisionShapes[0].Shape->getActor()->getAggregate()->getActors(PxActors, NumActors);
 
 	// FOR DEBUG
-	int MaxShapes = 3;
+	int MaxShapes = 100;
 
 	// For each PxActor, find all its shapes and execute the input function
 	int Index = 0;

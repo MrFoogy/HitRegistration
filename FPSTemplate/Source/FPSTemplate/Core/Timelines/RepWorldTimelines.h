@@ -29,8 +29,8 @@ public:
 	virtual RepTimeline<RepAnimationSnapshot>& GetAnimationTimeline(IRepMovable* RepMovable);
 	virtual void PreRollbackWorld(IRepMovable* ExcludedMovable);
 	virtual void PreRollbackTarget(IRepMovable* TargetMovable);
-	virtual void RollbackWorld(IRepMovable* ExcludedMovable, float CurrentTime, float InterpolationOffset, float RTT);
-	virtual void RollbackTarget(IRepMovable* TargetMovable, float CurrentTime, float InterpolationOffset, float RTT);
+	virtual void RollbackWorld(IRepMovable* ExcludedMovable, float CurrentTime, float InterpolationOffset, float RTT, bool IsInterpolated);
+	virtual void RollbackTarget(IRepMovable* TargetMovable, float CurrentTime, float InterpolationOffset, float RTT, bool IsInterpolated);
 	virtual void ResetWorld(IRepMovable* ExcludedMovable);
 	virtual void ResetTarget(IRepMovable* TargetMovable);
 protected:

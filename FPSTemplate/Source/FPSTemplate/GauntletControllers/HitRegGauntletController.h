@@ -20,6 +20,8 @@ private:
 	// Time to run the profiler for.
 	const float TestDuration = 14.5f;
 
+	bool UseRollback;
+
 	UFUNCTION()
 	void StartTesting();
 

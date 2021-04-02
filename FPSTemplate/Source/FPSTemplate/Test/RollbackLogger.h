@@ -17,7 +17,7 @@ public:
 	void CreateLogFile();
 	void WriteString(FString* Str, FString* FilePath);
 	void LogDiscrepancy(float Time, float RandomHitPrecision, RepAnimationSnapshot* LocalSnapshot, RepAnimationSnapshot* RollbackSnapshot);
-	void LogOptimalFudge(float Time, float OptimalFudge, float OptimalAngDiff, float OptimalPosDiff);
+	void LogOptimalFudge(float Time, float OptimalFudge, float OptimalAngDiff, float OptimalPosDiff, float TransmissionTime);
 	void DumpLogFile();
 
 protected:

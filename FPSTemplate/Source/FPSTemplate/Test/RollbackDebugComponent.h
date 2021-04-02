@@ -16,6 +16,12 @@ enum ServerReplicationMessageType
 	ServerState, RollbackState
 };
 
+UENUM()
+enum AutomatedMovementType
+{
+	MoveStraight, Alternate, None
+};
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class FPSTEMPLATE_API URollbackDebugComponent : public UActorComponent
 {
@@ -31,10 +37,10 @@ protected:
 
 public:
 	UFUNCTION(Server, Reliable)
-	void ServerRequestAnimState(AFPSTemplateCharacter* Target, int Counter);
+	void ServerRequestAnimState(AFPSTemplateCharacter* Target, int Counter, bool IsInterpolated);
 
 	UFUNCTION(Server, Reliable)
-	void ServerStartLocalShapeTransmission(AFPSTemplateCharacter* Target, int Counter);
+	void ServerStartLocalShapeTransmission(AFPSTemplateCharacter* Target, int Counter, FDateTime ClientTime, bool IsInterpolated);
 
 	UFUNCTION(Server, Reliable)
 	void ServerSendLocalShape(AFPSTemplateCharacter* Target, int Counter, int ShapeID, FVector Position, FQuat Rotation);
@@ -48,15 +54,18 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerSetReplicationOffset(float Offset);
 
+	UFUNCTION(Server, Reliable)
+	void ServerSetLatency(int Latency);
+
 	UFUNCTION(Client, Reliable)
 	void ClientDisplayShapeTransform(AFPSTemplateCharacter* Target, int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type, float duration);
 
 	UFUNCTION(Client, Reliable)
-	void ClientSendDebugOptimalFudge(float Time, float OptimalFudge, float OptimalAngDiff, float OptimalPosDiff);
+	void ClientSendDebugOptimalFudge(float Time, float OptimalFudge, float OptimalAngDiff, float OptimalPosDiff, float TransmissionTime);
 
 	void DebugStartMonitoring();
 
-	void StartDebugMovement();
+	void StartDebugMovement(AutomatedMovementType MovementType);
 
 	void SaveRollbackLog();
 
@@ -70,13 +79,15 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 protected:
-	bool IsMonitoringDiscrepancy = false;
 
 	AFPSTemplateCharacter* OwnerCharacter;
 
+	TArray<FVector> PositionsLocal;
+	TArray<FQuat> RotationsLocal;
 	TArray<RepAnimationSnapshot> PosesLocal;
 	TArray<RepAnimationSnapshot> PosesRemote;
 	TArray<float> LocalPoseTimes;
+	TArray<FDateTime> ClientSendTimes;
 	bool DebugIsMonitoring = false;
 	float LastDebugShapeSendTime = 0.0f;
 	float DebugShapeDisplayTime = 0.0f;
@@ -89,22 +100,24 @@ protected:
 	bool ShouldUpdateTimelineSlider = true;
 	bool ShouldInterpolateDebugPoses = false;
 
-	bool IsUsingDebugMovement = false;
+	AutomatedMovementType DebugMovementType = AutomatedMovementType::None;
 	float DebugMovementStartTime;
 
 
 	const int NUM_RANDOM_HIT_TESTS = 300;
 	TArray<FVector> RandomBoundingBoxPositions;
 	TArray<bool> RandomHitTestResults;
-	void GenerateRandomBoundingBoxPositions();
-	FVector GetRandomPointInBoundingBox();
+	void GenerateRandomBoundingBoxPositions(FVector& CenterPosition, FQuat& CenterRotation);
+	FVector GetRandomPointInBoundingBox(FVector& CenterPosition, FQuat& CenterRotation);
 	FRay GetRandomCollisionTestRay(int RandomPointIndex);
-	float CalculateRandomHitRate(RepAnimationSnapshot& RollbackSnapshot);
+	float CalculateRandomHitRate(FVector& Posisition, FQuat& Rotation, RepAnimationSnapshot& LocalSnapshot, RepAnimationSnapshot& RollbackSnapshot);
 	bool TestHitFromRay(const FRay& Ray);
 
-	void FindOptimalRollbackFudge(int Counter, float& OptimalFudge, float& OptimalAngDiff, float& OptimalPosDiff);
+	void FindOptimalRollbackFudge(int Counter, float& OptimalFudge, float& OptimalAngDiff, float& OptimalPosDiff, bool IsInterpolated);
 
 public:
+	bool IsMonitoringDiscrepancy = false;
+
 	virtual void ServerSendShapeTransforms(AFPSTemplateCharacter* Target, ServerReplicationMessageType Type);
 	virtual void DisplayShapeTransform(int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type, float Duration);
 
@@ -120,7 +133,7 @@ public:
 	void OnClientReceiveRemoteShape(AFPSTemplateCharacter* MonitoringPlayer, int Counter, int ShapeID, FVector Position, FQuat Rotation);
 
 	void DebugPrepareMonitoredTest();
-	void DebugPrepareMonitoringTest();
+	void DebugPrepareMonitoringTest(bool UseInterpolation);
 
 	AFPSTemplateCharacter* DebugFindOtherPlayer();
 
