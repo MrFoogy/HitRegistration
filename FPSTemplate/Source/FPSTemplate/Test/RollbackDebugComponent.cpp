@@ -41,10 +41,13 @@ void URollbackDebugComponent::TickComponent(float DeltaTime, ELevelTick TickType
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	if (DebugMovementType == AutomatedMovementType::Alternate) {
-		OwnerCharacter->MoveForward(FMath::Sin(GetWorld()->GetTimeSeconds()));
+		float SinVal = FMath::Sin(GetWorld()->GetTimeSeconds());
+		OwnerCharacter->MoveForward(SinVal > 0.0f ? 1.0f : -1.0f);
+		OwnerCharacter->MoveRight(-0.5f);
 	}
 	if (DebugMovementType == AutomatedMovementType::MoveStraight) {
 		OwnerCharacter->MoveForward(1.f);
+		OwnerCharacter->MoveRight(-0.5f);
 	}
 
 	if (GetOwner()->GetLocalRole() == ROLE_SimulatedProxy) {
@@ -114,7 +117,7 @@ void URollbackDebugComponent::TickComponent(float DeltaTime, ELevelTick TickType
 			OwnerCharacter->GetController()->SetControlRotation(Rot);
 		}
 		//GetWorld()->GetGameState()->PlayerArray[0]->GetPawn<AFPSTemplateCharacter>();
-		if (GetWorld()->GetTimeSeconds() - LastDebugShapeSendTime > 0.4f && DebugIsMonitoring) {
+		if (GetWorld()->GetTimeSeconds() - LastDebugShapeSendTime > 0.35f && DebugIsMonitoring) {
 			AFPSTemplateCharacter* OtherPlayer = DebugFindOtherPlayer();
 			UCustomCharacterMovementComponent* OtherMovementComponent = Cast<UCustomCharacterMovementComponent>(OtherPlayer->GetCharacterMovement());
 			if (IsMonitoringDiscrepancy) {
@@ -201,7 +204,7 @@ void URollbackDebugComponent::DebugPrepareMonitoredTest()
 	
 }
 
-void URollbackDebugComponent::DebugPrepareMonitoringTest(bool UseInterpolation)
+void URollbackDebugComponent::DebugPrepareMonitoringTest(bool UseInterpolation, FString LogFileName)
 {
 	// Player starts are randomly assigned, so for consistency, set the start position
 	ServerSetInitialTransform(FVector(0.0f, -300.0f, 262.0f), FRotationMatrix::MakeFromX(FVector(1.0f, 0.0f, 0.0f)).ToQuat());
@@ -213,6 +216,7 @@ void URollbackDebugComponent::DebugPrepareMonitoringTest(bool UseInterpolation)
 	else {
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Use interpolation: false")));
 	}
+	RollbackLogger.CreateLogFile(LogFileName);
 }
 
 void URollbackDebugComponent::DebugStartMonitoring()
@@ -220,7 +224,6 @@ void URollbackDebugComponent::DebugStartMonitoring()
 	DebugIsMonitoring = true;
 	LastDebugShapeSendTime = GetWorld()->GetTimeSeconds();
 	IsScoping = true;
-	RollbackLogger.CreateLogFile();
 }
 
 //-----------------------------------------
@@ -237,6 +240,7 @@ void URollbackDebugComponent::ServerRequestAnimState_Implementation(AFPSTemplate
 	AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode*)GetWorld()->GetAuthGameMode();
 	if (GameMode != NULL) {
 		if (GameMode->ShouldUseRollback) {
+			UE_LOG(LogGauntlet, Display, TEXT("Roll back!"));
 			GameMode->GetRepWorldTimelines().PreRollbackTarget((IRepMovable*)Target),
 				GameMode->GetRepWorldTimelines().RollbackTarget((IRepMovable*)Target, GetWorld()->GetTimeSeconds(),
 					RepTimeline<RepSnapshot>::InterpolationOffset, Target->GetPing(), IsInterpolated);
@@ -418,8 +422,9 @@ void URollbackDebugComponent::FindOptimalRollbackFudge(int Counter, float& Optim
 
 		OptimalFudge = (MinFudgeFactor + MaxFudgeFactor) / 2.0f;
 
-		// LOG BEST
-		GameMode->GetRepWorldTimelines().ResetTarget((IRepMovable*)OwnerCharacter);
+		if (GameMode->ShouldUseRollback) {
+			GameMode->GetRepWorldTimelines().ResetTarget((IRepMovable*)OwnerCharacter);
+		}
 	}
 }
 
@@ -436,8 +441,9 @@ void URollbackDebugComponent::ServerSetReplicationOffset_Implementation(float Of
 void URollbackDebugComponent::ServerSetLatency_Implementation(int Latency)
 {
     FPacketSimulationSettings CustomSettings;
-    CustomSettings.PktIncomingLagMin = Latency;
-    CustomSettings.PktIncomingLagMax = Latency;
+    CustomSettings.PktIncomingLagMin = Latency / 2;
+    CustomSettings.PktIncomingLagMax = Latency / 2;
+	CustomSettings.PktLag = Latency / 2;
     UWorld* World = GetWorld();
     if (World != NULL) {
         World->GetNetDriver()->SetPacketSimulationSettings(CustomSettings);

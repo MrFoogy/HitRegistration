@@ -19,12 +19,17 @@ FRollbackLogger::~FRollbackLogger()
 {
 }
 
-void FRollbackLogger::CreateLogFile() {
-	FDateTime DateTime = FDateTime::Now();
-	FString TimeString = DateTime.ToString();
-	//FilePath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()) + FString::Printf(TEXT("/DebugLogs/%s-Log.txt"), *TimeString);
-	DiscrepancyFilePath = FString::Printf(TEXT("D:/Exjobb-Jonathan/HitRegistration/FPSTemplate/DebugLogs/%s-DiscrepancyLog.txt"), *TimeString);
-	OptimalFudgeFilePath = FString::Printf(TEXT("D:/Exjobb-Jonathan/HitRegistration/FPSTemplate/DebugLogs/%s-FudgeLog.txt"), *TimeString);
+void FRollbackLogger::CreateLogFile(FString FileName) {
+	if (FileName.IsEmpty()) {
+		FDateTime DateTime = FDateTime::Now();
+		FString TimeString = DateTime.ToString();
+		DiscrepancyFilePath = FString::Printf(TEXT("D:/Exjobb-Jonathan/HitRegistration/FPSTemplate/DebugLogs/%s-DiscrepancyLog.txt"), *TimeString);
+		OptimalFudgeFilePath = FString::Printf(TEXT("D:/Exjobb-Jonathan/HitRegistration/FPSTemplate/DebugLogs/%s-FudgeLog.txt"), *TimeString);
+	}
+	else {
+		DiscrepancyFilePath = FString::Printf(TEXT("%s-DiscrepancyLog.txt"), *FileName);
+		OptimalFudgeFilePath = FString::Printf(TEXT("%s-FudgeLog.txt"), *FileName);
+	}
 }
 
 void FRollbackLogger::WriteString(FString* Str, FString* FilePath) {

@@ -14,6 +14,6 @@
  set CONFIG=Development
  
  rem ********************* Start Gauntlet Test *********************
- %UAT_PATH% %TEST_CMD% -project=%PRJ_NAME% -platform=%PLATFORM% -configuration=%CONFIG% -test=%TEST_NAME% -build=%STAGING_DIR% -%TEST_NAME%Latency=%1 -%TEST_NAME%Interpolation=%2 -%TEST_NAME%MovementType=%3 -%TEST_NAME%MonitorType=%4 -%TEST_NAME%Rollback=%5
+ %UAT_PATH% %TEST_CMD% -project=%PRJ_NAME% -platform=%PLATFORM% -configuration=%CONFIG% -test=%TEST_NAME% -build=%STAGING_DIR% -%TEST_NAME%Latency=%1 -%TEST_NAME%Interpolation=%2 -%TEST_NAME%MovementType=%3 -%TEST_NAME%MonitorType=%4 -%TEST_NAME%Rollback=%5 -%TEST_NAME%LogFileName=%6
  rem ********************* End   Gauntlet Test *********************
  pause

@@ -89,7 +89,8 @@ void URepWorldTimelines::RollbackTarget(IRepMovable* TargetMovable, float Curren
 		RollbackTime = CurrentTime - InterpolationOffset - RTT;
 	}
 	else {
-		RollbackTime = CurrentTime - (RTT * 0.5f);
+		RollbackTime = CurrentTime - RTT;
+		//RollbackTime = CurrentTime - (RTT * 0.5f);
 	}
 
 	if (MovementTimelines.Contains(TargetMovable)) {

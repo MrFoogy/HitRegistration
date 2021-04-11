@@ -133,7 +133,7 @@ public:
 	void OnClientReceiveRemoteShape(AFPSTemplateCharacter* MonitoringPlayer, int Counter, int ShapeID, FVector Position, FQuat Rotation);
 
 	void DebugPrepareMonitoredTest();
-	void DebugPrepareMonitoringTest(bool UseInterpolation);
+	void DebugPrepareMonitoringTest(bool UseInterpolation, FString LogFileName);
 
 	AFPSTemplateCharacter* DebugFindOtherPlayer();
 

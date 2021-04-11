@@ -23,6 +23,7 @@ void UHitRegMonitorGauntletController::PrepareTest()
     bool MonitorDiscrepancy = true;
     FString InterpolationParam;
     FString MonitorTypeParam;
+    FString LogFileNameParam;
 
     if (FParse::Value(FCommandLine::Get(), TEXT("Interpolation"), InterpolationParam)) {
         InterpolationParam = InterpolationParam.Replace(TEXT("="), TEXT("")).Replace(TEXT("\""), TEXT("")); 
@@ -36,11 +37,14 @@ void UHitRegMonitorGauntletController::PrepareTest()
     if (MonitorTypeParam == "Fudge" || MonitorTypeParam == "fudge") {
         MonitorDiscrepancy = false;
     }
+    if (FParse::Value(FCommandLine::Get(), TEXT("LogFileName"), LogFileNameParam)) {
+        LogFileNameParam = LogFileNameParam.Replace(TEXT("="), TEXT("")).Replace(TEXT("\""), TEXT(""));
+    }
 
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMonitorGauntletController::StartTesting, PrepareTime, false);
     APlayerController* PlayerController = GetFirstPlayerController();
     Character = (AFPSTemplateCharacter*)PlayerController->GetPawn();
-    Character->RollbackDebug->DebugPrepareMonitoringTest(UseInterpolation);
+    Character->RollbackDebug->DebugPrepareMonitoringTest(UseInterpolation, LogFileNameParam);
     Character->RollbackDebug->IsMonitoringDiscrepancy = MonitorDiscrepancy;
 }
 
@@ -49,6 +53,7 @@ void UHitRegMonitorGauntletController::StartTesting()
     Character->RollbackDebug->DebugStartMonitoring();
     FTimerHandle dummy;
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMonitorGauntletController::RecordResults, TestDuration, false);
+
     /*
     UGameUserSettings* GameUserSettings = GEngine->GetGameUserSettings();
     if (GameUserSettings) {
