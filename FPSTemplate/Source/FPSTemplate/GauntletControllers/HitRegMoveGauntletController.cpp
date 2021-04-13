@@ -21,7 +21,9 @@ void UHitRegMoveGauntletController::PrepareTest()
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMoveGauntletController::StartTesting, PrepareTime, false);
     APlayerController* PlayerController = GetFirstPlayerController();
     Character = (AFPSTemplateCharacter*)PlayerController->GetPawn();
+    /*
     Character->RollbackDebug->DebugPrepareMonitoredTest();
+    */
     FString MovementParam;
 
     //string

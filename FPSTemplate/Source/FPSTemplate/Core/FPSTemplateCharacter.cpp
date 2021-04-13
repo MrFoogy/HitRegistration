@@ -245,7 +245,7 @@ FRotator AFPSTemplateCharacter::GetViewRotation()
 FVector AFPSTemplateCharacter::GetPlayerVelocity()
 {
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
-	if (GetLocalRole() != ROLE_SimulatedProxy || !MovementComponent->ReplicationType == MovementReplicationType::Default) {
+	if (GetLocalRole() != ROLE_SimulatedProxy || MovementComponent->ReplicationType == MovementReplicationType::Default) {
 		return MovementComponent->Velocity;
 	}
 	else {
