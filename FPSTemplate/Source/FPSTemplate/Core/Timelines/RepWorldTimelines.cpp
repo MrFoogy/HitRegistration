@@ -73,24 +73,25 @@ void URepWorldTimelines::PreRollbackTarget(IRepMovable* TargetMovable)
 	TargetMovable->PrepareRollback();
 }
 
-void URepWorldTimelines::RollbackWorld(IRepMovable* ExcludedMovable, float CurrentTime, float InterpolationOffset, float RTT, bool IsInterpolated)
+void URepWorldTimelines::RollbackWorld(IRepMovable* ExcludedMovable, float CurrentTime, float InterpolationOffset, float RTT, 
+	MovementReplicationType ReplicationType)
 {
 	for (IRepMovable* RepObject : RepObjects) {
 		if (RepObject != ExcludedMovable) {
-			RollbackTarget(RepObject, CurrentTime, InterpolationOffset, RTT, IsInterpolated);
+			RollbackTarget(RepObject, CurrentTime, InterpolationOffset, RTT, ReplicationType);
 		}
 	}
 }
 
-void URepWorldTimelines::RollbackTarget(IRepMovable* TargetMovable, float CurrentTime, float InterpolationOffset, float RTT, bool IsInterpolated)
+void URepWorldTimelines::RollbackTarget(IRepMovable* TargetMovable, float CurrentTime, float InterpolationOffset, float RTT, 
+	MovementReplicationType ReplicationType)
 {
 	float RollbackTime;
-	if (IsInterpolated) {
+	if (ReplicationType == MovementReplicationType::Interpolation) {
 		RollbackTime = CurrentTime - InterpolationOffset - RTT;
 	}
-	else {
+	else if (ReplicationType == MovementReplicationType::Default) {
 		RollbackTime = CurrentTime - RTT;
-		//RollbackTime = CurrentTime - (RTT * 0.5f);
 	}
 
 	if (MovementTimelines.Contains(TargetMovable)) {

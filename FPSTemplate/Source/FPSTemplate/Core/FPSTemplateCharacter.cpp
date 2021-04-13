@@ -213,7 +213,7 @@ void AFPSTemplateCharacter::OnRep_ReplicatedMovement()
 	// TODO: by overriding this, the movement state / animation systems don't seem to work properly
 	//UE_LOG(LogTemp, Warning, TEXT("Receive at: %f"), GetWorld()->GetTimeSeconds());
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
-	if (MovementComponent->UsesInterpolation) {
+	if (MovementComponent->ReplicationType == MovementReplicationType::Interpolation) {
 		FVector NewLocation = FRepMovement::RebaseOntoLocalOrigin(GetReplicatedMovement().Location, this);
 		MovementComponent->OnReceiveServerUpdate(NewLocation, GetReplicatedMovement().Rotation.Quaternion(), GetReplicatedMovement().LinearVelocity, NetUpdateFrequency);
 	}
@@ -234,7 +234,7 @@ FRotator AFPSTemplateCharacter::GetViewRotation()
 	if (GetController() != NULL) {
 		return GetController()->GetControlRotation();
 	}
-	else if (MovementComponent->UsesInterpolation) {
+	else if (MovementComponent->ReplicationType == MovementReplicationType::Interpolation) {
 		return RepViewRotationTimeline.GetSnapshot(GetInterpolationTime()).ViewRotation;
 	}
 	else {
@@ -245,7 +245,7 @@ FRotator AFPSTemplateCharacter::GetViewRotation()
 FVector AFPSTemplateCharacter::GetPlayerVelocity()
 {
 	UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
-	if (GetLocalRole() != ROLE_SimulatedProxy || !MovementComponent->UsesInterpolation) {
+	if (GetLocalRole() != ROLE_SimulatedProxy || !MovementComponent->ReplicationType == MovementReplicationType::Default) {
 		return MovementComponent->Velocity;
 	}
 	else {
@@ -303,12 +303,11 @@ void AFPSTemplateCharacter::ServerFire_Implementation(AFPSTemplateCharacter* Tar
 		FQuat ServerRotation = Target->GetActorQuat();
 
 		UCustomCharacterMovementComponent* MovementComponent = Cast<UCustomCharacterMovementComponent>(GetMovementComponent());
-		// TODO: handle this better
-		bool IsWorldInterpolated = MovementComponent->UsesInterpolation;
 
 		GameMode->GetRepWorldTimelines().PreRollbackWorld((IRepMovable*)this); 
+		// TODO: replication type should not be here?
 		GameMode->GetRepWorldTimelines().RollbackWorld((IRepMovable*)this, GetWorld()->GetTimeSeconds(), 
-			RepTimeline<RepSnapshot>::InterpolationOffset, GetPing(), IsWorldInterpolated);
+			RepTimeline<RepSnapshot>::InterpolationOffset, GetPing(), MovementComponent->ReplicationType);
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, FString::Printf(TEXT("Ping at server: %f"), GetPingRaw()));
 		// COLLISION TEST
 		RollbackDebug->ServerSendShapeTransforms(Target, ServerReplicationMessageType::RollbackState);

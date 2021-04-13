@@ -18,7 +18,7 @@ private:
 	bool Initialized = false;
 
 	// Time to run the profiler for.
-	const float TestDuration = 14.5f;
+	const float TestDuration = 16.5f;
 
 	bool UseRollback;
 

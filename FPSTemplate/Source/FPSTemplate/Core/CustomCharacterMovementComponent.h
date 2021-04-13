@@ -9,6 +9,12 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "CustomCharacterMovementComponent.generated.h"
 
+UENUM()
+enum MovementReplicationType
+{
+	Interpolation, Default, Extrapolation
+};
+
 /**
  * 
  */
@@ -25,7 +31,7 @@ public:
 	void OnReceiveServerUpdate(const FVector& NewLocation, const FQuat& NewRotation, const FVector& NewVelocity, float ReplicationFrequency);
 	virtual void ApplySnapshot(const RepSnapshot& Spanshot);
 	FVector GetRepVelocity();
-	bool UsesInterpolation = false;
+	MovementReplicationType ReplicationType = MovementReplicationType::Default;
 
 protected:
 	void SmoothClientPosition(float DeltaSeconds) override;

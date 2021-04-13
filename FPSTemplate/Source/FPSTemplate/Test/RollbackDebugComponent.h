@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "Core/Timelines/RepAnimationSnapshot.h"
 #include "Test/RollbackLogger.h"
+#include "Core/CustomCharacterMovementComponent.h"
 #include "RollbackDebugComponent.generated.h"
 
 class AFPSTemplateCharacter;
@@ -37,10 +38,10 @@ protected:
 
 public:
 	UFUNCTION(Server, Reliable)
-	void ServerRequestAnimState(AFPSTemplateCharacter* Target, int Counter, bool IsInterpolated);
+	void ServerRequestAnimState(AFPSTemplateCharacter* Target, int Counter, MovementReplicationType ReplicationType);
 
 	UFUNCTION(Server, Reliable)
-	void ServerStartLocalShapeTransmission(AFPSTemplateCharacter* Target, int Counter, FDateTime ClientTime, bool IsInterpolated);
+	void ServerStartLocalShapeTransmission(AFPSTemplateCharacter* Target, int Counter, FDateTime ClientTime, MovementReplicationType ReplicationType);
 
 	UFUNCTION(Server, Reliable)
 	void ServerSendLocalShape(AFPSTemplateCharacter* Target, int Counter, int ShapeID, FVector Position, FQuat Rotation);
@@ -113,7 +114,7 @@ protected:
 	float CalculateRandomHitRate(FVector& Posisition, FQuat& Rotation, RepAnimationSnapshot& LocalSnapshot, RepAnimationSnapshot& RollbackSnapshot);
 	bool TestHitFromRay(const FRay& Ray);
 
-	void FindOptimalRollbackFudge(int Counter, float& OptimalFudge, float& OptimalAngDiff, float& OptimalPosDiff, bool IsInterpolated);
+	void FindOptimalRollbackFudge(int Counter, float& OptimalFudge, float& OptimalAngDiff, float& OptimalPosDiff, MovementReplicationType ReplicationType);
 
 public:
 	bool IsMonitoringDiscrepancy = false;
@@ -133,7 +134,7 @@ public:
 	void OnClientReceiveRemoteShape(AFPSTemplateCharacter* MonitoringPlayer, int Counter, int ShapeID, FVector Position, FQuat Rotation);
 
 	void DebugPrepareMonitoredTest();
-	void DebugPrepareMonitoringTest(bool UseInterpolation, FString LogFileName);
+	void DebugPrepareMonitoringTest(MovementReplicationType ReplicationType, FString LogFileName);
 
 	AFPSTemplateCharacter* DebugFindOtherPlayer();
 

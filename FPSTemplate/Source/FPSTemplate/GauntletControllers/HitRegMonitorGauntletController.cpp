@@ -5,6 +5,7 @@
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "TimerManager.h"
 #include "Async/Async.h"
+#include "Core/CustomCharacterMovementComponent.h"
 #include "GameFramework/GameUserSettings.h"
 
 void UHitRegMonitorGauntletController::OnInit()
@@ -44,7 +45,8 @@ void UHitRegMonitorGauntletController::PrepareTest()
 	GetWorld()->GetTimerManager().SetTimer(dummy, this, &UHitRegMonitorGauntletController::StartTesting, PrepareTime, false);
     APlayerController* PlayerController = GetFirstPlayerController();
     Character = (AFPSTemplateCharacter*)PlayerController->GetPawn();
-    Character->RollbackDebug->DebugPrepareMonitoringTest(UseInterpolation, LogFileNameParam);
+    Character->RollbackDebug->DebugPrepareMonitoringTest(UseInterpolation ? MovementReplicationType::Interpolation : 
+        MovementReplicationType::Default, LogFileNameParam);
     Character->RollbackDebug->IsMonitoringDiscrepancy = MonitorDiscrepancy;
 }
 

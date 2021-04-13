@@ -7,6 +7,7 @@
 #include "Core/Timelines/RepTimeline.h"
 #include "Core/Timelines/RepSnapshot.h"
 #include "Core/Timelines/RepAnimationSnapshot.h"
+#include "Core/CustomCharacterMovementComponent.h"
 
 /**
  * 
@@ -29,8 +30,10 @@ public:
 	virtual RepTimeline<RepAnimationSnapshot>& GetAnimationTimeline(IRepMovable* RepMovable);
 	virtual void PreRollbackWorld(IRepMovable* ExcludedMovable);
 	virtual void PreRollbackTarget(IRepMovable* TargetMovable);
-	virtual void RollbackWorld(IRepMovable* ExcludedMovable, float CurrentTime, float InterpolationOffset, float RTT, bool IsInterpolated);
-	virtual void RollbackTarget(IRepMovable* TargetMovable, float CurrentTime, float InterpolationOffset, float RTT, bool IsInterpolated);
+	virtual void RollbackWorld(IRepMovable* ExcludedMovable, float CurrentTime, float InterpolationOffset, float RTT, 
+		MovementReplicationType ReplicationType);
+	virtual void RollbackTarget(IRepMovable* TargetMovable, float CurrentTime, float InterpolationOffset, float RTT, 
+		MovementReplicationType ReplicationType);
 	virtual void ResetWorld(IRepMovable* ExcludedMovable);
 	virtual void ResetTarget(IRepMovable* TargetMovable);
 protected:
