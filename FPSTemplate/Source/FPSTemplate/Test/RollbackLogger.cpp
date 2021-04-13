@@ -1,8 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "GauntletModule.h"
 #include "Test/RollbackLogger.h"
+#include "GauntletModule.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
 #include "GenericPlatform/GenericPlatformFile.h"

@@ -6,7 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "Core/Timelines/RepAnimationSnapshot.h"
 #include "Test/RollbackLogger.h"
-#include "Core/CustomCharacterMovementComponent.h"
+#include "Core/ReplicationUtil.h"
 #include "RollbackDebugComponent.generated.h"
 
 class AFPSTemplateCharacter;

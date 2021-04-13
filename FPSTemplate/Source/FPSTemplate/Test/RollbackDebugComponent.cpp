@@ -80,7 +80,6 @@ void URollbackDebugComponent::TickComponent(float DeltaTime, ELevelTick TickType
 		}
 
 		// Rollback pose
-#include "Core/CustomCharacterMovementComponent.h"
 		RepAnimationSnapshot RollbackPose;
 		TargetIndex = EndIndex;
 		if (DebugShapeDisplayTime > 0.1f) {

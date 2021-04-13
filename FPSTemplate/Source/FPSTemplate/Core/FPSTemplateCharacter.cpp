@@ -13,6 +13,7 @@
 #include "Core/ShapeManagerComponent.h"
 #include "Misc/CString.h"
 #include "Misc/DateTime.h"
+#include "Core/ReplicationUtil.h"
 #include "Engine/NetDriver.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);

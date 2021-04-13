@@ -7,13 +7,8 @@
 #include "Core/Timelines/RepSnapshot.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Core/ReplicationUtil.h"
 #include "CustomCharacterMovementComponent.generated.h"
-
-UENUM()
-enum MovementReplicationType
-{
-	Interpolation, Default, Extrapolation
-};
 
 /**
  * 

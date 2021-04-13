@@ -5,7 +5,6 @@
 #include "ProfilingDebugging/CsvProfiler.h"
 #include "TimerManager.h"
 #include "Async/Async.h"
-#include "Core/CustomCharacterMovementComponent.h"
 #include "GameFramework/GameUserSettings.h"
 
 void UHitRegMonitorGauntletController::OnInit()
