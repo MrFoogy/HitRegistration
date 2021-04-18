@@ -2,6 +2,7 @@
 
 
 #include "Core/CustomCharacterMovementComponent.h"
+#include "GauntletModule.h"
 #include "Runtime/Engine/Public/EngineGlobals.h"
 
 UCustomCharacterMovementComponent::UCustomCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
@@ -48,7 +49,8 @@ void UCustomCharacterMovementComponent::SmoothCorrection(const FVector& OldLocat
 void UCustomCharacterMovementComponent::OnReceiveServerUpdate(const FVector& NewLocation, 
 	const FQuat& NewRotation, const FVector& NewVelocity, float ReplicationFrequency)
 {
-	if (ReplicationType == MovementReplicationType::Default) {
+	if (ReplicationType == MovementReplicationType::Interpolation) {
+        UE_LOG(LogGauntlet, Display, TEXT("POS UPDATE: %s"), *NewLocation.ToString());
 		float InterpolationTime = GetWorld()->GetTimeSeconds() - RepTimeline<RepSnapshot>::InterpolationOffset;
 		RepMovementTimeline.AddSnapshotCompensating(RepSnapshot(NewLocation, NewRotation, NewVelocity), GetWorld()->GetTimeSeconds(),
 			InterpolationTime, ReplicationFrequency);

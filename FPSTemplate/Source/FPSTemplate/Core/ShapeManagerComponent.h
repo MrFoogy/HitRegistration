@@ -17,6 +17,9 @@ class FPSTEMPLATE_API UShapeManagerComponent : public UActorComponent
 public:	
 	// Sets default values for this component's properties
 	UShapeManagerComponent();
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Gameplay)
+	int32 SoleShape;
 
 protected:
 	// Called when the game starts

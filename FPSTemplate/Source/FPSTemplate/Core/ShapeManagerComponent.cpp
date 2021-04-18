@@ -36,21 +36,26 @@ void UShapeManagerComponent::BeginPlay()
 
 	// FOR DEBUG
 	int MaxShapes = 100;
+	int SelectShape = SoleShape;
 
 	// For each PxActor, find all its shapes and execute the input function
 	int Index = 0;
+	int LoopIndex = 0;
 	for (int i = 0; i < FoundActors; i++) {
 		physx::PxRigidActor* RigidActor = (physx::PxRigidActor*) PxActors[i];
 		if (RigidActor == NULL) continue;
 		int FoundShapes = RigidActor->getShapes(PxShapes, 10);
 		for (int j = 0; j < FoundShapes; j++) {
 			if (AllShapes.Num() >= MaxShapes) continue;
-			if (AllShapes.Num() < Index + 1) {
-				AllShapes.SetNum(Index + 1);
+			if (SelectShape == -1 || SelectShape == LoopIndex) {
+				if (AllShapes.Num() < Index + 1) {
+					AllShapes.SetNum(Index + 1);
+				}
+				AllShapes[Index] = PxShapes[j];
+				ShapeIDs.Add(PxShapes[j], Index);
+				Index++;
 			}
-			AllShapes[Index] = PxShapes[j];
-			ShapeIDs.Add(PxShapes[j], Index);
-			Index++;
+			LoopIndex++;
 		}
 	}
 	delete[] PxActors;

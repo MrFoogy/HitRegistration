@@ -116,7 +116,7 @@ void URollbackDebugComponent::TickComponent(float DeltaTime, ELevelTick TickType
 			OwnerCharacter->GetController()->SetControlRotation(Rot);
 		}
 		//GetWorld()->GetGameState()->PlayerArray[0]->GetPawn<AFPSTemplateCharacter>();
-		if (GetWorld()->GetTimeSeconds() - LastDebugShapeSendTime > 0.35f && DebugIsMonitoring) {
+		if (GetWorld()->GetTimeSeconds() - LastDebugShapeSendTime > 0.2f && DebugIsMonitoring) {
 			AFPSTemplateCharacter* OtherPlayer = DebugFindOtherPlayer();
 			UCustomCharacterMovementComponent* OtherMovementComponent = Cast<UCustomCharacterMovementComponent>(OtherPlayer->GetCharacterMovement());
 			if (IsMonitoringDiscrepancy) {
@@ -237,7 +237,7 @@ void URollbackDebugComponent::ServerRequestAnimState_Implementation(AFPSTemplate
 		if (GameMode->ShouldUseRollback) {
 			UE_LOG(LogGauntlet, Display, TEXT("Roll back!"));
 			GameMode->GetRepWorldTimelines().PreRollbackTarget((IRepMovable*)Target),
-				GameMode->GetRepWorldTimelines().RollbackTarget((IRepMovable*)Target, GetWorld()->GetTimeSeconds(),
+				GameMode->GetRepWorldTimelines().RollbackTarget((IRepMovable*)Target, GetWorld()->GetTimeSeconds() + 0.065,
 					RepTimeline<RepSnapshot>::InterpolationOffset, Target->GetPing(), ReplicationType);
 		}
 		for (int i = 0; i < Target->ShapeManager->GetAllShapes().Num(); i++) {
@@ -342,7 +342,7 @@ void URollbackDebugComponent::OnServerReceiveRemoteShape(AFPSTemplateCharacter* 
 			//UE_LOG(LogGauntlet, Display, TEXT("Client %s"), *ClientSendTimes[Counter].ToString());
 			//UE_LOG(LogGauntlet, Display, TEXT("Now %s"), *FDateTime::Now().ToString());
 			float TransmissionTime = (FDateTime::Now() - ClientSendTimes[Counter]).GetTotalSeconds();
-			MonitoringPlayer->RollbackDebug->ClientSendDebugOptimalFudge(GetWorld()->GetTimeSeconds(), TransmissionTime, OptimalAngDiff, OptimalPosDiff, MonitoringPlayer->GetPingRaw() * 0.001f/*TransmissionTime*/);
+			MonitoringPlayer->RollbackDebug->ClientSendDebugOptimalFudge(GetWorld()->GetTimeSeconds(), OptimalFudge, OptimalAngDiff, OptimalPosDiff, MonitoringPlayer->GetPingRaw() * 0.001f/*TransmissionTime*/);
 			UE_LOG(LogGauntlet, Display, TEXT("Ping at server: %f"), MonitoringPlayer->GetPingRaw());
 		}
 	}
@@ -394,8 +394,10 @@ void URollbackDebugComponent::FindOptimalRollbackFudge(int Counter, float& Optim
 			//UE_LOG(LogGauntlet, Display, TEXT("Lower pos: %f"), AveragePositionDiscrepancyLower);
 			float DiscrepancyScoreLower = AverageAngleDiscrepancyLower + AveragePositionDiscrepancyLower;
 
-			GameMode->GetRepWorldTimelines().RollbackTarget((IRepMovable*)OwnerCharacter, GetWorld()->GetTimeSeconds() + UpperMid,
-				RepTimeline<RepSnapshot>::InterpolationOffset, OwnerCharacter->GetPing(), ReplicationType);
+			if (GameMode->ShouldUseRollback) {
+				GameMode->GetRepWorldTimelines().RollbackTarget((IRepMovable*)OwnerCharacter, GetWorld()->GetTimeSeconds() + UpperMid,
+					RepTimeline<RepSnapshot>::InterpolationOffset, OwnerCharacter->GetPing(), ReplicationType);
+			}
 			RollbackTransforms.Empty();
 			OwnerCharacter->ShapeManager->SavePhysicsShapeTransformsGlobal(RollbackTransforms);
 			RollbackPose = RepAnimationSnapshot(RollbackTransforms);

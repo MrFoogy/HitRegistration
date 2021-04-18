@@ -366,7 +366,7 @@ void AFPSTemplateCharacter::ApplyAnimationSnapshot(RepAnimationSnapshot& Rollbac
 float AFPSTemplateCharacter::GetPing()
 {
 	// TODO: the multiplication with 4 here is only because the custom PktLag seems to add only 1/2 its RTT to this variable?
-	return GetPlayerState()->Ping * 0.001f * 4.0f  + RollbackOffset;
+	return GetPlayerState()->Ping * 0.001f * 4.0f;
 }
 
 float AFPSTemplateCharacter::GetPingRaw()

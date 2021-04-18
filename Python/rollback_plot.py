@@ -54,7 +54,7 @@ def make_single_fig(file_names, data_types, legend = []):
     fig, ax = plt.subplots(len(data_types))
     if not isinstance(ax, list):
         ax = [ax]
-    colors = ((0.1, 0.6, 0.4, 1.0), (0.7, 0.7, 0.0, 1.0), (0.7, 0.45, 0.0, 1.0), (0.8, 0.1, 0.15, 1.0))
+    colors = ((0.1, 0.6, 0.4, 1.0), (0.7, 0.7, 0.0, 1.0), (0.7, 0.45, 0.0, 1.0), (0.8, 0.1, 0.15, 1.0), (0.5, 0.0, 0.0, 1.0), (0.0, 0.5, 0.0, 1.0), (0.0, 0.0, 0.5, 1.0))
     for i, file_name in enumerate(file_names):
         used_axes = 0
         f = open(file_name)
@@ -80,8 +80,9 @@ def make_single_fig(file_names, data_types, legend = []):
 
         fudge_data = parse_data_for_stat(time_data, "OptimalFudge: ")
         if fudge_data and "Fudge" in data_types:
-            plot_data(ax[used_axes], fudge_data, "Optimal Fudge Factor", "Time (s)", "Fudge Factor", (0, 1.0), colors[i])
+            plot_data(ax[used_axes], fudge_data, "Optimal Fudge Factor", "Time (s)", "Fudge Factor", (0, 0.3), colors[i])
             used_axes += 1
+            print(file_name, sum(fudge_data[1]) / len(fudge_data[1]))
 
         transmission_data = parse_data_for_stat(time_data, "Transmission: ")
         if transmission_data and "Transmission" in data_types:
@@ -158,7 +159,7 @@ if __name__ == "__main__":
         if os.path.exists(images_path):
             shutil.rmtree(images_path)
         os.mkdir(images_path)
-        data_types = ["Angle", "Distance", "Precision"]
+        data_types = ["Angle", "Distance", "Fudge"] if log_type == "Fudge" else ["Angle", "Distance", "Precision"]
         for data_type in data_types:
             for file_set in file_sets:
                 config = "".join(file_set[0].split('-')[:-2])
