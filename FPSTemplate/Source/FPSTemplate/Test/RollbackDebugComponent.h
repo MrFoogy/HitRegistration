@@ -41,7 +41,7 @@ public:
 	void ServerRequestAnimState(AFPSTemplateCharacter* Target, int Counter, MovementReplicationType ReplicationType);
 
 	UFUNCTION(Server, Reliable)
-	void ServerStartLocalShapeTransmission(AFPSTemplateCharacter* Target, int Counter, FDateTime ClientTime, MovementReplicationType ReplicationType);
+	void ServerStartLocalShapeTransmission(AFPSTemplateCharacter* Target, int Counter, FVector Position, FQuat Rotation, MovementReplicationType ReplicationType);
 
 	UFUNCTION(Server, Reliable)
 	void ServerSendLocalShape(AFPSTemplateCharacter* Target, int Counter, int ShapeID, FVector Position, FQuat Rotation);
@@ -62,7 +62,7 @@ public:
 	void ClientDisplayShapeTransform(AFPSTemplateCharacter* Target, int ShapeID, FVector Position, FQuat Rotation, ServerReplicationMessageType Type, float duration);
 
 	UFUNCTION(Client, Reliable)
-	void ClientSendDebugOptimalFudge(float Time, float OptimalFudge, float OptimalAngDiff, float OptimalPosDiff, float TransmissionTime);
+	void ClientSendDebugOptimalFudge(float Time, float OptimalFudge, float OptimalAngDiff, float OptimalPosDiff, float OptimalHitRate, float TransmissionTime);
 
 	void DebugStartMonitoring();
 
@@ -83,8 +83,8 @@ protected:
 
 	AFPSTemplateCharacter* OwnerCharacter;
 
-	TArray<FVector> PositionsLocal;
-	TArray<FQuat> RotationsLocal;
+	TArray<FVector> PositionsClient;
+	TArray<FQuat> RotationsClient;
 	TArray<RepAnimationSnapshot> PosesLocal;
 	TArray<RepAnimationSnapshot> PosesRemote;
 	TArray<float> LocalPoseTimes;
@@ -95,6 +95,8 @@ protected:
 	float DebugShapeDisplayOffset = 0.0f;
 	class URollbackTimelineWidget* RollbackTimelineWidget;
 	FRollbackLogger RollbackLogger;
+
+	int DrawRayCounter = 5;
 
 	bool IsScoping = false;
 

@@ -24,7 +24,7 @@ private:
 	const float PrepareTime = 1.5f;
 
 	// Time to run the profiler for.
-	const float TestDuration = 8.f;
+	const float TestDuration = 18.f;
 
 	const float ShutDownTime = 1.f;
 

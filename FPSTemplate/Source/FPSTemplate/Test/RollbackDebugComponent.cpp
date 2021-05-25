@@ -8,6 +8,7 @@
 #include "Core/FPSTemplateCharacter.h"
 #include "Engine/NetDriver.h"
 #include "Engine/World.h"
+#include "Math/UnrealMathUtility.h"
 #include "Core/ShapeManagerComponent.h"
 
 // Sets default values for this component's properties
@@ -40,13 +41,11 @@ void URollbackDebugComponent::TickComponent(float DeltaTime, ELevelTick TickType
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	if (DebugMovementType == AutomatedMovementType::Alternate) {
-		float SinVal = FMath::Sin(GetWorld()->GetTimeSeconds());
-		OwnerCharacter->MoveForward(SinVal > 0.0f ? 1.0f : -1.0f);
-		OwnerCharacter->MoveRight(-0.5f);
+		float SinVal = FMath::Sin(GetWorld()->GetTimeSeconds() * 4.0f);
+		OwnerCharacter->MoveRight(SinVal > 0.0f ? 1.0f : -1.0f);
 	}
 	if (DebugMovementType == AutomatedMovementType::MoveStraight) {
-		OwnerCharacter->MoveForward(1.f);
-		OwnerCharacter->MoveRight(-0.5f);
+		OwnerCharacter->MoveRight(1.f);
 	}
 
 	if (GetOwner()->GetLocalRole() == ROLE_SimulatedProxy) {
@@ -131,8 +130,8 @@ void URollbackDebugComponent::TickComponent(float DeltaTime, ELevelTick TickType
 				if (OtherPlayer != NULL) {
 					//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Ping at client: %f"), GetPingRaw()));
 
-					ServerStartLocalShapeTransmission(OtherPlayer, OtherPlayer->RollbackDebug->AnimSaveCounter, FDateTime::Now(), 
-						OtherMovementComponent->ReplicationType);
+					ServerStartLocalShapeTransmission(OtherPlayer, OtherPlayer->RollbackDebug->AnimSaveCounter, OtherPlayer->GetActorLocation(), 
+						OtherPlayer->GetActorQuat(), OtherMovementComponent->ReplicationType);
 					for (int i = 0; i < OtherPlayer->ShapeManager->GetAllShapes().Num(); i++) {
 						PxRigidActor* PxActor = (PxRigidActor*)OtherPlayer->ShapeManager->GetAllShapes()[i]->getActor();
 						PxTransform ShapeGlobalPose = PxActor->getGlobalPose() * OtherPlayer->ShapeManager->GetAllShapes()[i]->getLocalPose();
@@ -153,8 +152,8 @@ void URollbackDebugComponent::SaveLocalShapeForDebug()
 	TMap<physx::PxShape*, physx::PxTransform> ShapeTransforms;
 	OwnerCharacter->ShapeManager->SavePhysicsShapeTransformsGlobal(ShapeTransforms);
 	PosesLocal.Add(RepAnimationSnapshot(ShapeTransforms));
-	PositionsLocal.Add(OwnerCharacter->GetActorLocation());
-	RotationsLocal.Add(OwnerCharacter->GetActorQuat());
+	PositionsClient.Add(OwnerCharacter->GetActorLocation());
+	RotationsClient.Add(OwnerCharacter->GetActorQuat());
 	LocalPoseTimes.Add(GetWorld()->GetTimeSeconds());
 	AnimSaveCounter++;
 }
@@ -199,14 +198,14 @@ void URollbackDebugComponent::StartDebugMovement(AutomatedMovementType MovementT
 void URollbackDebugComponent::DebugPrepareMonitoredTest()
 {
 	// Player starts are randomly assigned, so for consistency, set the start position
-	ServerSetInitialTransform(FVector(-300.0f, 100.0f, 262.0f), FVector(1.0f, 0.0f, 0.0f).ToOrientationQuat());
+	ServerSetInitialTransform(FVector(-200.0f, 700.0f, 262.0f), FVector(1.0f, 0.0f, 0.0f).ToOrientationQuat());
 	
 }
 
 void URollbackDebugComponent::DebugPrepareMonitoringTest(MovementReplicationType ReplicationType, FString LogFileName)
 {
 	// Player starts are randomly assigned, so for consistency, set the start position
-	ServerSetInitialTransform(FVector(0.0f, -300.0f, 262.0f), FRotationMatrix::MakeFromX(FVector(1.0f, 0.0f, 0.0f)).ToQuat());
+	ServerSetInitialTransform(FVector(-800.0f, 0.0f, 262.0f), FRotationMatrix::MakeFromX(FVector(1.0f, 0.0f, 0.0f)).ToQuat());
 	UCustomCharacterMovementComponent* OtherMovementComponent = Cast<UCustomCharacterMovementComponent>(DebugFindOtherPlayer()->GetCharacterMovement());
 	OtherMovementComponent->ReplicationType = ReplicationType;
 
@@ -251,14 +250,15 @@ void URollbackDebugComponent::ServerRequestAnimState_Implementation(AFPSTemplate
 	}
 }
 
-void URollbackDebugComponent::ServerStartLocalShapeTransmission_Implementation(AFPSTemplateCharacter* Target, int Counter, FDateTime ClientTime, 
+void URollbackDebugComponent::ServerStartLocalShapeTransmission_Implementation(AFPSTemplateCharacter* Target, int Counter, FVector Position, FQuat Rotation, 
 	MovementReplicationType ReplicationType)
 {
 	if (Target->RollbackDebug->ClientSendTimes.Num() < Counter + 1) {
 		Target->RollbackDebug->ClientSendTimes.SetNum(Counter + 1);
 	}
-	Target->RollbackDebug->ClientSendTimes[Counter] = ClientTime;
 	Target->RollbackDebug->SaveLocalPose(Counter);
+	Target->RollbackDebug->PositionsClient.Add(Position);
+	Target->RollbackDebug->RotationsClient.Add(Rotation);
 	UCustomCharacterMovementComponent* TargetMovementComponent = Cast<UCustomCharacterMovementComponent>(Target->GetCharacterMovement());
 	TargetMovementComponent->ReplicationType = ReplicationType;
 }
@@ -317,8 +317,8 @@ void URollbackDebugComponent::OnClientReceiveRemoteShape(AFPSTemplateCharacter* 
 	if (PosesRemote[Counter].HasAddedAllTransforms()) {
 		// Remote pose assembly complete!
 
-		float HitRate = CalculateRandomHitRate(PositionsLocal[Counter], RotationsLocal[Counter], PosesLocal[Counter], PosesRemote[Counter]);
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Hit rate: %f"), HitRate));
+		float HitRate = CalculateRandomHitRate(PositionsClient[Counter], RotationsClient[Counter], PosesLocal[Counter], PosesRemote[Counter]);
+		//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Hit rate: %f"), HitRate));
 		MonitoringPlayer->RollbackDebug->RollbackLogger.LogDiscrepancy(LocalPoseTimes[Counter], HitRate, &PosesLocal[Counter], &PosesRemote[Counter]);
 	}
 }
@@ -341,17 +341,29 @@ void URollbackDebugComponent::OnServerReceiveRemoteShape(AFPSTemplateCharacter* 
 			FindOptimalRollbackFudge(Counter, OptimalFudge, OptimalAngDiff, OptimalPosDiff, MovementComponent->ReplicationType);
 			//UE_LOG(LogGauntlet, Display, TEXT("Client %s"), *ClientSendTimes[Counter].ToString());
 			//UE_LOG(LogGauntlet, Display, TEXT("Now %s"), *FDateTime::Now().ToString());
+
+			AFPSTemplateGameMode* GameMode = (AFPSTemplateGameMode *)GetWorld()->GetAuthGameMode();
+			TMap<physx::PxShape*, physx::PxTransform> RollbackTransforms;
+			GameMode->GetRepWorldTimelines().PreRollbackTarget((IRepMovable*)OwnerCharacter);
+			GameMode->GetRepWorldTimelines().RollbackTarget((IRepMovable*)OwnerCharacter, GetWorld()->GetTimeSeconds() + OptimalFudge,
+				RepTimeline<RepSnapshot>::InterpolationOffset, OwnerCharacter->GetPing(), MovementComponent->ReplicationType);
+			RollbackTransforms.Empty();
+			OwnerCharacter->ShapeManager->SavePhysicsShapeTransformsGlobal(RollbackTransforms);
+			RepAnimationSnapshot RollbackPose(RollbackTransforms);
+			GameMode->GetRepWorldTimelines().ResetTarget((IRepMovable*)OwnerCharacter);
+			float OptimalHitRate = CalculateRandomHitRate(PositionsClient[Counter], RotationsClient[Counter], PosesRemote[Counter], RollbackPose);
+
 			float TransmissionTime = (FDateTime::Now() - ClientSendTimes[Counter]).GetTotalSeconds();
-			MonitoringPlayer->RollbackDebug->ClientSendDebugOptimalFudge(GetWorld()->GetTimeSeconds(), OptimalFudge, OptimalAngDiff, OptimalPosDiff, MonitoringPlayer->GetPingRaw() * 0.001f/*TransmissionTime*/);
+			MonitoringPlayer->RollbackDebug->ClientSendDebugOptimalFudge(GetWorld()->GetTimeSeconds(), OptimalFudge, OptimalAngDiff, OptimalPosDiff, OptimalHitRate, MonitoringPlayer->GetPingRaw() * 0.001f/*TransmissionTime*/);
 			UE_LOG(LogGauntlet, Display, TEXT("Ping at server: %f"), MonitoringPlayer->GetPingRaw());
 		}
 	}
 }
 
 void URollbackDebugComponent::ClientSendDebugOptimalFudge_Implementation(float Time, float OptimalFudge, float OptimalAngDiff, 
-	float OptimalPosDiff, float TransmissionTime)
+	float OptimalPosDiff, float OptimalHitRate, float TransmissionTime)
 {
-	RollbackLogger.LogOptimalFudge(Time, OptimalFudge, OptimalAngDiff, OptimalPosDiff, TransmissionTime);
+	RollbackLogger.LogOptimalFudge(Time, OptimalFudge, OptimalAngDiff, OptimalPosDiff, OptimalHitRate, TransmissionTime);
 	UE_LOG(LogGauntlet, Display, TEXT("Ping at client: %f"), OwnerCharacter->GetPingRaw());
 }
 
@@ -513,10 +525,12 @@ FRay URollbackDebugComponent::GetRandomCollisionTestRay(int RandomPointIndex)
 {
 	float Dist = 300.0f;
 	FVector PassThroughPoint = RandomBoundingBoxPositions[RandomPointIndex];
-	FVector Start = OwnerCharacter->GetActorRightVector() * Dist + PassThroughPoint;
-	DrawDebugLine(GetWorld(), Start, Start - (OwnerCharacter->GetActorRightVector() * Dist * 2.0f), FColor::Purple, false, 0.5f);
+	FVector Start = OwnerCharacter->GetActorForwardVector() * Dist + PassThroughPoint;
+	if (DrawRayCounter == 0) {
+		DrawDebugLine(GetWorld(), Start, Start - (OwnerCharacter->GetActorForwardVector() * Dist * 2.0f), FColor::Red, false, FMath::RandRange(0.15f, 0.3f));
+	}
 	//DrawDebugPoint(GetWorld(), Start, 10.0f, FColor::Blue, false, 0.5f);
-	return FRay(Start, -OwnerCharacter->GetActorRightVector());
+	return FRay(Start, -OwnerCharacter->GetActorForwardVector());
 }
 
 bool URollbackDebugComponent::TestHitFromRay(const FRay& Ray)
@@ -570,6 +584,8 @@ float URollbackDebugComponent::CalculateRandomHitRate(FVector& Position, FQuat& 
 	// First, test local snapshot, store the intermediate results
 	OwnerCharacter->ApplyAnimationSnapshot(LocalSnapshot);
 
+	DrawRayCounter--;
+
 	for (int i = 0; i < NUM_RANDOM_HIT_TESTS; i++) {
 		FRay Ray = GetRandomCollisionTestRay(i);
 		RandomHitTestResults.Add(TestHitFromRay(Ray));
@@ -590,6 +606,10 @@ float URollbackDebugComponent::CalculateRandomHitRate(FVector& Position, FQuat& 
 	}
 
 	OwnerCharacter->ApplyAnimationSnapshot(OriginalSnapshot);
+
+	if (DrawRayCounter == 0) {
+		DrawRayCounter = 5;
+	}
 
 	return (float) Matches / LocalHits;
 }
